@@ -1,6 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+/*
+     148 src/hermes/UtilityManager.sol
+     174 src/hermes/bHermes.sol
+     126 src/hermes/interfaces/IBaseV2Minter.sol
+     105 src/hermes/interfaces/IUtilityManager.sol
+      55 src/hermes/interfaces/IbHermesUnderlying.sol
+     168 src/hermes/minters/BaseV2Minter.sol
+      65 src/hermes/tokens/HERMES.sol
+      36 src/hermes/tokens/bHermesBoost.sol
+      43 src/hermes/tokens/bHermesGauges.sol
+      43 src/hermes/tokens/bHermesVotes.sol
+     963 total
+*/
+
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 
 import {ERC20} from "solmate/tokens/ERC20.sol";
