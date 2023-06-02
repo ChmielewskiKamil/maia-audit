@@ -132,4 +132,27 @@ contract bHermesTest is DSTestPlus {
         hevm.expectRevert(abi.encodeWithSignature("InsufficientUnderlying()"));
         bHermes.transfer(address(2), 100 ether);
     }
+
+
+    /* @audit 001 */
+    function testTransferFrom() public {
+        testMint();
+
+        // hevm.prank(address(1));
+        // bHermes.approve(address(2), 100 ether);
+
+        hevm.prank(address(2));
+
+        // Callin transferFrom without allowance should result in "Insufficient allowance"
+        // In this case however it results in "Arithmetic over/underflow"
+        try bHermes.transferFrom(address(1), address(2), 1 ether) {
+            emit log("success");
+        } catch Error(string memory reason) {
+            emit log(reason);
+        } catch {
+            emit log("Transfer failed");
+        }
+
+        assertEq(bHermes.balanceOf(address(2)), 1 ether);
+    }
 }
