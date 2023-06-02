@@ -81,6 +81,8 @@ contract bHermes is UtilityManager, ERC4626DepositOnly {
 
     /// @dev Checks available weight allows for the call.
     modifier checkWeight(uint256 amount) override {
+        /* @audit Amount of what? 
+        * The amount of HERMES which is the main incentive system token */
         if (balanceOf[msg.sender] < amount + userClaimedWeight[msg.sender]) {
             revert InsufficientShares();
         }
@@ -109,6 +111,7 @@ contract bHermes is UtilityManager, ERC4626DepositOnly {
 
     function claimOutstanding() public virtual {
         uint256 balance = balanceOf[msg.sender];
+        /* @audit How can I make userClaimed < balanceOf */
         /// @dev Never overflows since balandeOf >= userClaimed.
         claimWeight(balance - userClaimedWeight[msg.sender]);
         claimBoost(balance - userClaimedBoost[msg.sender]);
@@ -134,6 +137,10 @@ contract bHermes is UtilityManager, ERC4626DepositOnly {
                              ERC20 LOGIC
     //////////////////////////////////////////////////////////////*/
 
+    /* @audit 
+    * - no access control? 
+    * - what calls to this func? 
+    * - Can this be called multiple times? */ 
     /**
      * @notice Mint new bHermes and its underlying tokens: governance, boost and gauge tokens
      * @param to address to mint new tokens for
@@ -162,6 +169,7 @@ contract bHermes is UtilityManager, ERC4626DepositOnly {
         return super.transfer(to, amount);
     }
 
+    /* @audit 001 - Is it access control protected? */
     /**
      * @notice Transfer bHermes and its underlying tokens from a specific account
      * @param from address to transfer the tokens from

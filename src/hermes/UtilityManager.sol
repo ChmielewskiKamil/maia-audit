@@ -28,6 +28,7 @@ abstract contract UtilityManager is IUtilityManager {
     /// @inheritdoc IUtilityManager
     ERC20Votes public immutable governance;
 
+    /* @audit bHermes utilitiy tokens already withdrawn by the user */
     /// @inheritdoc IUtilityManager
     mapping(address => uint256) public userClaimedWeight;
     /// @inheritdoc IUtilityManager
@@ -69,6 +70,7 @@ abstract contract UtilityManager is IUtilityManager {
     function forfeitWeight(uint256 amount) public virtual {
         if (amount == 0) return;
         userClaimedWeight[msg.sender] -= amount;
+        /* @audit Review the risks of safe transfer from */
         address(gaugeWeight).safeTransferFrom(msg.sender, address(this), amount);
 
         emit ForfeitWeight(msg.sender, amount);
