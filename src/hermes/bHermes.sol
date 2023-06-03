@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 /*
      148 src/hermes/UtilityManager.sol
-     174 src/hermes/bHermes.sol
+     174 src/hermes/bHermes.sol ✅
      126 src/hermes/interfaces/IBaseV2Minter.sol
      105 src/hermes/interfaces/IUtilityManager.sol
       55 src/hermes/interfaces/IbHermesUnderlying.sol
@@ -169,7 +169,8 @@ contract bHermes is UtilityManager, ERC4626DepositOnly {
         return super.transfer(to, amount);
     }
 
-    /* @audit 001 - Is it access control protected? */
+    /* @audit-ok 001 - Is it access control protected?
+    * Yes it is. SOLMATE won't allow to transferFrom without approval */
     /**
      * @notice Transfer bHermes and its underlying tokens from a specific account
      * @param from address to transfer the tokens from

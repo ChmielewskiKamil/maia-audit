@@ -8,6 +8,10 @@ import {ERC20} from "solmate/tokens/ERC20.sol";
 
 import {IERC4626DepositOnly} from "./interfaces/IERC4626DepositOnly.sol";
 
+/* @audit QUESTIONS 
+* - Is the amount of shares correctly calculated for the deposit amount? 
+* - */
+
 /// @title Minimal Deposit Only ERC4626 tokenized Vault implementation
 /// @author Maia DAO (https://github.com/Maia-DAO)
 abstract contract ERC4626DepositOnly is ERC20, IERC4626DepositOnly {
@@ -66,11 +70,24 @@ abstract contract ERC4626DepositOnly is ERC20, IERC4626DepositOnly {
 
     /// @inheritdoc IERC4626DepositOnly
     function convertToShares(uint256 assets) public view virtual returns (uint256) {
+        /* @audit 
+        * a - amount of assets to deposit 
+        * B - Vault balance before the deposit (totalAssets)
+        * T - Total shares before mint (totalSupply)
+        * s - shares to mint 
+        *
+        * This function should calculates `s`
+        *
+        * According to smart contract programmer:
+        * s = (a*T) / B 
+        *
+        * */
         uint256 supply = totalSupply; // Saves an extra SLOAD if totalSupply is non-zero.
 
         return supply == 0 ? assets : assets.mulDiv(supply, totalAssets());
     }
-
+    
+    /* @audit-ok Correct */
     /// TODO: @inheritdoc IERC4626DepositOnly
     function convertToAssets(uint256 shares) public view virtual returns (uint256) {
         uint256 supply = totalSupply; // Saves an extra SLOAD if totalSupply is non-zero.
@@ -108,5 +125,6 @@ abstract contract ERC4626DepositOnly is ERC20, IERC4626DepositOnly {
                           INTERNAL HOOKS LOGIC
     //////////////////////////////////////////////////////////////*/
 
+    /* @audit Where is this overriden? */
     function afterDeposit(uint256 assets, uint256 shares) internal virtual {}
 }
