@@ -125,6 +125,6 @@ abstract contract ERC4626DepositOnly is ERC20, IERC4626DepositOnly {
                           INTERNAL HOOKS LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    /* @audit Where is this overriden? */
+    /* @audit-issue [QA-001] This function is not overriden anywhere and is used only in tests */
     function afterDeposit(uint256 assets, uint256 shares) internal virtual {}
 }
