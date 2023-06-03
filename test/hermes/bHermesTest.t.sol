@@ -133,7 +133,6 @@ contract bHermesTest is DSTestPlus {
         bHermes.transfer(address(2), 100 ether);
     }
 
-
     /* @audit 001 */
     function testTransferFrom() public {
         testMint();
@@ -148,11 +147,11 @@ contract bHermesTest is DSTestPlus {
         try bHermes.transferFrom(address(1), address(2), 1 ether) {
             emit log("success");
         } catch Error(string memory reason) {
-            emit log(reason);
+            assertEq(reason, "Arithmetic over/underflow");
         } catch {
             emit log("Transfer failed");
         }
 
-        assertEq(bHermes.balanceOf(address(2)), 1 ether);
+        assertEq(bHermes.balanceOf(address(2)), 0 ether);
     }
 }
