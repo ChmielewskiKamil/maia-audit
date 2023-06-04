@@ -22,3 +22,14 @@
  185 src/erc-4626/interfaces/IERC4626MultiToken.sol
   91 src/erc-4626/interfaces/IUlyssesERC4626.sol
 1178 total
+
+### ERC-20
+ 345 src/erc-20/ERC20Boost.sol
+ 556 src/erc-20/ERC20Gauges.sol
+ 379 src/erc-20/ERC20MultiVotes.sol
+  10 src/erc-20/interfaces/Errors.sol
+ 239 src/erc-20/interfaces/IERC20Boost.sol
+ 281 src/erc-20/interfaces/IERC20Gauges.sol
+ 177 src/erc-20/interfaces/IERC20MultiVotes.sol
+1987 total
+
