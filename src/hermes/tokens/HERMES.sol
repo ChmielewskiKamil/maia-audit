@@ -53,6 +53,7 @@ contract HERMES is ERC20, Ownable {
                         ERC20 LOGIC
     //////////////////////////////////////////////////////////////*/
 
+    /* @audit Why the owner can mint infinite tokens? */
     /**
      * @notice Responsible for minting new hermes tokens.
      * @dev Checks if the sender is an allowed minter.

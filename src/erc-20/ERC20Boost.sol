@@ -32,6 +32,7 @@ abstract contract ERC20Boost is ERC20, Ownable, IERC20Boost {
 
     mapping(address => EnumerableSet.AddressSet) internal _userGauges;
 
+    /* @audit How to write to this? */
     EnumerableSet.AddressSet internal _gauges;
 
     // Store deprecated gauges in case a user needs to free dead boost
@@ -57,6 +58,7 @@ abstract contract ERC20Boost is ERC20, Ownable, IERC20Boost {
         }
     }
 
+    /* @audit Is the 0 addr gauge a valid gauge? */
     /// @inheritdoc IERC20Boost
     function isGauge(address gauge) external view returns (bool) {
         return _gauges.contains(gauge) && !_deprecatedGauges.contains(gauge);
@@ -77,6 +79,8 @@ abstract contract ERC20Boost is ERC20, Ownable, IERC20Boost {
         return _deprecatedGauges.length();
     }
 
+    /* @audit This is the remaining Hermes tokens or bHermes tokens? 
+    * Hypothesis: It's bHermes */
     /// @inheritdoc IERC20Boost
     function freeGaugeBoost(address user) public view returns (uint256) {
         return balanceOf[user] - getUserBoost[user];
@@ -112,22 +116,46 @@ abstract contract ERC20Boost is ERC20, Ownable, IERC20Boost {
                         GAUGE OPERATIONS
     //////////////////////////////////////////////////////////////*/
 
+    /* @audit This is supposed to be only callable by the gauge, how is that enforced?
+    * Only the admin can add a new gauge via `addGauge` function */
     /// @inheritdoc IERC20Boost
     function attach(address user) external {
+        /* @audit-ok Is access control sufficient? 
+        * 1: will revert if the sender is not active gauge 
+        * 2: will revert if the sender is deprecated gauge
+        */
         if (!_gauges.contains(msg.sender) || _deprecatedGauges.contains(msg.sender)) {
             revert InvalidGauge();
         }
 
+        /* @audit What does idempotent mean? 
+        * It means that no matter how many times we perform an operation, 
+        * the result will always be the same. 
+        * 
+        * What does it mean in this context tho? */
+        
+        /* @audit I need to investigate how the enumerable set works.
+        * What does the add function return? 
+
+        Set.add function returns true if two conditions are met:
+        * - the element was added to the set 
+        * - the element was not present in the set before */
+
+        /* @audit-ok What does this achieve? It maps the user to the sender?
+        * The msg.sender is the gauge, this line adds the calling gauge to user gauges */
         // idempotent add
         if (!_userGauges[user].add(msg.sender)) revert GaugeAlreadyAttached();
 
+        /* @audit Why is it casting the uint256 balanceOf to uint128? */
         uint128 userGaugeBoost = balanceOf[user].toUint128();
 
+        /* @audit This is comparing the uint256 to uint128, how does that work? */
         if (getUserBoost[user] < userGaugeBoost) {
             getUserBoost[user] = userGaugeBoost;
             emit UpdateUserBoost(user, userGaugeBoost);
         }
 
+        /* @audit I don't understand it. Is it assigning the same thing as above the second time? */
         getUserGaugeBoost[user][msg.sender] =
             GaugeState({userGaugeBoost: userGaugeBoost, totalGaugeBoost: totalSupply.toUint128()});
 
@@ -262,6 +290,9 @@ abstract contract ERC20Boost is ERC20, Ownable, IERC20Boost {
 
     function _addGauge(address gauge) internal {
         bool newAdd = _gauges.add(gauge);
+        /* @info set.remove returns true when two conditions are met:
+            * value was succesfuly removed
+            * it was actually present in the set */
         bool previouslyDeprecated = _deprecatedGauges.remove(gauge);
         // add and fail loud if zero address or already present and not deprecated
         if (gauge == address(0) || !(newAdd || previouslyDeprecated)) revert InvalidGauge();

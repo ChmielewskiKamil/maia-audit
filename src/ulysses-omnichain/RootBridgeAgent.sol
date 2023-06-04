@@ -832,6 +832,8 @@ contract RootBridgeAgent is IRootBridgeAgent {
         //Save gasleft
         uint256 gasLeft = gasleft();
 
+        /* @audit Validator can influence tx.gasprice -> See: Opensense interview with Rahul 
+        * tx.gasprice = base fee + tip DO NOT TRUST SINCE EIP-1559 */
         //Get Branch Environment Execution Cost
         uint256 minExecCost = tx.gasprice * (MIN_FALLBACK_RESERVE + _initialGas - gasLeft);
 
