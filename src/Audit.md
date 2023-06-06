@@ -1,11 +1,11 @@
 
-### Talos
+### Hermes
  148 src/hermes/UtilityManager.sol ✅
  174 src/hermes/bHermes.sol ✅
  126 src/hermes/interfaces/IBaseV2Minter.sol
  105 src/hermes/interfaces/IUtilityManager.sol ✅
   55 src/hermes/interfaces/IbHermesUnderlying.sol ✅
- 168 src/hermes/minters/BaseV2Minter.sol
+ 168 src/hermes/minters/BaseV2Minter.sol ✅
   65 src/hermes/tokens/HERMES.sol ✅
   36 src/hermes/tokens/bHermesBoost.sol ✅
   43 src/hermes/tokens/bHermesGauges.sol
@@ -32,4 +32,19 @@
  281 src/erc-20/interfaces/IERC20Gauges.sol
  177 src/erc-20/interfaces/IERC20MultiVotes.sol
 1987 total
+
+### Gauges
+ 159 src/gauges/BaseV2Gauge.sol
+  77 src/gauges/UniswapV3Gauge.sol
+ 166 src/gauges/factories/BaseV2GaugeFactory.sol
+ 164 src/gauges/factories/BaseV2GaugeManager.sol
+ 111 src/gauges/factories/BribesFactory.sol
+ 103 src/gauges/factories/UniswapV3GaugeFactory.sol
+ 143 src/gauges/interfaces/IBaseV2Gauge.sol
+ 131 src/gauges/interfaces/IBaseV2GaugeFactory.sol
+ 134 src/gauges/interfaces/IBaseV2GaugeManager.sol
+  70 src/gauges/interfaces/IBribesFactory.sol
+  77 src/gauges/interfaces/IUniswapV3Gauge.sol
+  61 src/gauges/interfaces/IUniswapV3GaugeFactory.sol
+1396 total
 

@@ -57,6 +57,7 @@ contract FlywheelGaugeRewards is Ownable, IFlywheelGaugeRewards {
         gaugeCycleLength = _gaugeToken.gaugeCycleLength();
 
         // seed initial gaugeCycle
+        /* @audit The same precision loss as in BaseV2Minter? */
         gaugeCycle = (block.timestamp.toUint32() / gaugeCycleLength) * gaugeCycleLength;
 
         gaugeToken = _gaugeToken;
@@ -70,6 +71,8 @@ contract FlywheelGaugeRewards is Ownable, IFlywheelGaugeRewards {
 
     /// @inheritdoc IFlywheelGaugeRewards
     function queueRewardsForCycle() external returns (uint256 totalQueuedForCycle) {
+        /* @audit-issue Typo in the comment, probably bot race caught this.
+        * Nope, valid issue. Not found by the bot. */
         /// @dev Update minter cycle and queue rewars if needed.
         /// This will make this call fail if it is a new epoch, because the minter calls this function, the first call would fail with "CycleError()".
         /// Should be called through Minter to kickoff new epoch.
@@ -89,6 +92,7 @@ contract FlywheelGaugeRewards is Ownable, IFlywheelGaugeRewards {
         totalQueuedForCycle = minter.getRewards();
         require(rewardToken.balanceOf(address(this)) - balanceBefore >= totalQueuedForCycle);
 
+        /* @audit How are nextCycleQueuedRewards set? */
         // include uncompleted cycle
         totalQueuedForCycle += nextCycleQueuedRewards;
 
@@ -180,6 +184,11 @@ contract FlywheelGaugeRewards is Ownable, IFlywheelGaugeRewards {
 
             // Cycle queue already started
             require(queuedRewards.storedCycle < currentCycle);
+            /* @audit If this assertion could be broken, the rewards withdrawal would be bricked 
+            * 
+            * How is the storedCycle set?
+            *
+            * How is the lastCycle set? */
             assert(queuedRewards.storedCycle == 0 || queuedRewards.storedCycle >= lastCycle);
 
             uint112 completedRewards = queuedRewards.storedCycle == lastCycle ? queuedRewards.cycleRewards : 0;

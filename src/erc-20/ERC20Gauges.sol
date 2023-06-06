@@ -103,6 +103,8 @@ abstract contract ERC20Gauges is ERC20MultiVotes, ReentrancyGuard, IERC20Gauges 
         return _getStoredWeight(_totalWeight, _getGaugeCycleEnd());
     }
 
+    /* @audit values() return bytes32[] memory, here we are returning address[] memory, 
+    * how does that work? */
     /// @inheritdoc IERC20Gauges
     function gauges() external view returns (address[] memory) {
         return _gauges.values();
