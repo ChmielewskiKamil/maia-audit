@@ -82,7 +82,10 @@ contract bHermes is UtilityManager, ERC4626DepositOnly {
     /// @dev Checks available weight allows for the call.
     modifier checkWeight(uint256 amount) override {
         /* @audit Amount of what? 
-        * The amount of HERMES which is the main incentive system token */
+        * The amount of HERMES which is the main incentive system token
+        *
+        * The statement above might be incorrect, this is overriden from UtilityManager.
+        * It is the amount of ??? */
         if (balanceOf[msg.sender] < amount + userClaimedWeight[msg.sender]) {
             revert InsufficientShares();
         }
@@ -122,6 +125,7 @@ contract bHermes is UtilityManager, ERC4626DepositOnly {
                             ERC4626 LOGIC
     //////////////////////////////////////////////////////////////*/
 
+    /* @audit Circulating supply is the total supply of hermes - assets in the vault */
     /**
      * @notice Computes the amounts of tokens available in the contract.
      * @dev Front-running first deposit vulnerability is not an

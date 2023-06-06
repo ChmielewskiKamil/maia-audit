@@ -146,25 +146,42 @@ abstract contract ERC20Boost is ERC20, Ownable, IERC20Boost {
         // idempotent add
         if (!_userGauges[user].add(msg.sender)) revert GaugeAlreadyAttached();
 
-        /* @audit Why is it casting the uint256 balanceOf to uint128? */
+        /* @audit-ok Why is it casting the uint256 balanceOf to uint128? 
+        * They are casting it to uint128 because it will be later stored with the 
+        * uint128 totalSupply in one struct. This will save space as two variables will be packed
+        * in one slot. */
         uint128 userGaugeBoost = balanceOf[user].toUint128();
 
-        /* @audit This is comparing the uint256 to uint128, how does that work? */
+        /* @audit-ok This is comparing the uint256 to uint128, how does that work?
+        * This case will only be dangerous if uint256 getUserBoost > uint128.max - THATS NOT CORRECt
+        * This is safe as tested */
+        /* @audit-ok What this does?
+        * If the user allocated boost is smaller than his current (new) bHermes balance, 
+        * update available boost */
         if (getUserBoost[user] < userGaugeBoost) {
             getUserBoost[user] = userGaugeBoost;
             emit UpdateUserBoost(user, userGaugeBoost);
         }
 
-        /* @audit I don't understand it. Is it assigning the same thing as above the second time? */
+        /* @audit I don't understand it. Is it assigning the same thing as above the second time?
+        * This is assigning to a different variable getUserBoost != getUserGaugeBoost
+        * The getUserGaugeBoost returns the allocation for the specific gauge, while getUserBoost 
+        * returns the allocation for all gauges. 
+        *
+        * This function efectively attaches all of the user available boost to a gauge */
         getUserGaugeBoost[user][msg.sender] =
             GaugeState({userGaugeBoost: userGaugeBoost, totalGaugeBoost: totalSupply.toUint128()});
 
         emit Attach(user, msg.sender, userGaugeBoost);
     }
 
+    /* @audit-ok Is access control sufficient?
+    * The require will only pass after successful removal */
     /// @inheritdoc IERC20Boost
     function detach(address user) external {
         require(_userGauges[user].remove(msg.sender));
+        /* @audit-ok Does this delete the element correctly? 
+        * Yes, when deleting individual elements this works as expected */
         delete getUserGaugeBoost[user][msg.sender];
 
         emit Detach(user, msg.sender);
@@ -174,10 +191,14 @@ abstract contract ERC20Boost is ERC20, Ownable, IERC20Boost {
                         USER GAUGE OPERATIONS
     //////////////////////////////////////////////////////////////*/
 
+    /* @audit If user has many gauges attached this might be DOS'ed.
+    * Can one add gauges for other users? */
     /// @inheritdoc IERC20Boost
     function updateUserBoost(address user) external {
         uint256 userBoost = 0;
 
+        /* @audit This is a really expensive operation, is there a DOS vector?
+        * It copies entire storage to memory */
         address[] memory gaugeList = _userGauges[user].values();
 
         uint256 length = gaugeList.length;
@@ -202,7 +223,11 @@ abstract contract ERC20Boost is ERC20, Ownable, IERC20Boost {
     /// @inheritdoc IERC20Boost
     function decrementGaugeBoost(address gauge, uint256 boost) public {
         GaugeState storage gaugeState = getUserGaugeBoost[msg.sender][gauge];
+        /* @audit-issue This should probably handle also the deprecated gauges,
+        * just like the functions below 
+        * if (deprecated.contains || boost >= gaugeState)*/
         if (boost >= gaugeState.userGaugeBoost) {
+            /* @audit-issue Return value of remove is unchecked, event will be emitted nonetheless */
             _userGauges[msg.sender].remove(gauge);
             delete getUserGaugeBoost[msg.sender][gauge];
 
@@ -237,6 +262,8 @@ abstract contract ERC20Boost is ERC20, Ownable, IERC20Boost {
 
             GaugeState storage gaugeState = getUserGaugeBoost[msg.sender][gauge];
 
+            /* @audit What's special about this function that they are checking for deprecated gauges here
+            * In the decrementGaugeBoost it was not checked. */
             if (_deprecatedGauges.contains(gauge) || boost >= gaugeState.userGaugeBoost) {
                 require(_userGauges[msg.sender].remove(gauge)); // Remove from set. Should never fail.
                 delete getUserGaugeBoost[msg.sender][gauge];
@@ -274,6 +301,14 @@ abstract contract ERC20Boost is ERC20, Ownable, IERC20Boost {
             }
         }
 
+        /* @audit-issue Shouldn't all of the functions update the getUserBoost at the end?
+        * getUserBoost is used throughout this contract. And in the notAttached modifier which 
+        * is used for transfers and burns.
+        *
+        * This refers to the security note in the IERC20 Boost 
+        *
+        * I think it's correct since the modifier is restrictive. The getUserBoost increases
+        * only when the boost is attached to a gauge. The only way to decrease it is to remove all boost from all gauges */
         getUserBoost[msg.sender] = 0;
 
         emit UpdateUserBoost(msg.sender, 0);
@@ -291,9 +326,19 @@ abstract contract ERC20Boost is ERC20, Ownable, IERC20Boost {
     function _addGauge(address gauge) internal {
         bool newAdd = _gauges.add(gauge);
         /* @info set.remove returns true when two conditions are met:
-            * value was succesfuly removed
-            * it was actually present in the set */
+        * value was succesfuly removed
+        * it was actually present in the set */
         bool previouslyDeprecated = _deprecatedGauges.remove(gauge);
+        /* @audit newAdd will be true when:
+        * - it was succesfuly added 
+        * - it wasn't already present
+        * previouslyDeprecated will be true when:
+        * - it was succesfuly removed
+        * - it was present
+        * This means that the expression below will revert when:
+        * - gauge was already present in gauges
+        * - or gauge wasn't deprecated */
+        
         // add and fail loud if zero address or already present and not deprecated
         if (gauge == address(0) || !(newAdd || previouslyDeprecated)) revert InvalidGauge();
 
@@ -306,6 +351,8 @@ abstract contract ERC20Boost is ERC20, Ownable, IERC20Boost {
     }
 
     function _removeGauge(address gauge) internal {
+        /* @audit-issue Comment is incorrect:
+        * it should fail loud if it is already deprecated */
         // add to deprecated and fail loud if not present
         if (!_deprecatedGauges.add(gauge)) revert InvalidGauge();
 
