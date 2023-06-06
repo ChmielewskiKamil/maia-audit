@@ -22,6 +22,8 @@ contract BaseV2MinterTest is DSTestPlus {
 
     MockERC20 rewardToken;
 
+    uint256 constant week = 86400 * 7;
+
     //////////////////////////////////////////////////////////////////
     //                          SET UP
     //////////////////////////////////////////////////////////////////
@@ -40,7 +42,7 @@ contract BaseV2MinterTest is DSTestPlus {
             baseV2Minter
         );
 
-        hevm.warp(52 weeks);
+        hevm.warp(31549753);
     }
 
     //////////////////////////////////////////////////////////////////
@@ -136,9 +138,21 @@ contract BaseV2MinterTest is DSTestPlus {
         rewardToken.approve(address(bHermesToken), 500);
         bHermesToken.deposit(500, address(this));
 
+        uint256 year = 52 weeks;
+        console2.log("1 year is: %s", year);
+        console2.log("Timestamp before: %s", block.timestamp);
+        console2.log("Active period before: %s", baseV2Minter.activePeriod());
         assertEq(baseV2Minter.activePeriod(), 0);
+
+        console2.log("Initialize will calculate activePeriod as: %s", (block.timestamp / week) * week);
+        console2.log("The correct calculation would result in: %s", (block.timestamp * week) / week);
         baseV2Minter.initialize(flywheelGaugeRewards);
+
+        console2.log("Timestamp after: %s", block.timestamp);
+        console2.log("Active period after: %s", baseV2Minter.activePeriod());
         assertEq(baseV2Minter.activePeriod(), block.timestamp);
+
+        console2.log("Warping 1 week");
         hevm.warp(block.timestamp + 1 weeks);
 
         hevm.expectEmit(true, true, true, true);
