@@ -437,6 +437,34 @@ contract ERC20GaugesTest is DSTestPlus {
         assertEq(token.totalWeight(), 7e18);
     }
 
+    function testIncrementDuplicateGauges() public {
+            token.mint(address(this), 100e18);
+            token.setMaxDelegates(1);
+            token.delegate(address(this));
+
+            token.setMaxGauges(2);
+            token.addGauge(gauge1);
+            token.addGauge(gauge2);
+
+            token.incrementGauge(gauge1, 1e18);
+
+            address[] memory gaugeList = new address[](2);
+            uint112[] memory weights = new uint112[](2);
+            gaugeList[0] = gauge1;
+            gaugeList[1] = gauge1;
+            weights[0] = 2e18;
+            weights[1] = 4e18;
+
+            assertEq(token.incrementGauges(gaugeList, weights), 7e18);
+
+            // assertEq(token.getUserGaugeWeight(address(this), gauge2), 2e18);
+            // assertEq(token.getGaugeWeight(gauge2), 2e18);
+            assertEq(token.getUserGaugeWeight(address(this), gauge1), 7e18);
+            assertEq(token.getUserWeight(address(this)), 7e18);
+            assertEq(token.getGaugeWeight(gauge1), 7e18);
+            assertEq(token.totalWeight(), 7e18);
+        }
+
     function testIncrementGaugesDeprecated() public {
         token.mint(address(this), 100e18);
         token.setMaxDelegates(1);
