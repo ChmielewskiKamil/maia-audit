@@ -15,6 +15,12 @@ import {ERC20MultiVotes} from "./ERC20MultiVotes.sol";
 import {Errors} from "./interfaces/Errors.sol";
 import {IERC20Gauges} from "./interfaces/IERC20Gauges.sol";
 
+/* @audit 
+* How to allocate weight to a gauge? 
+* How to remove weight allocation? 
+*
+* These actions happen through the increment/decrementGauge functions */
+
 /// @title  An ERC20 with an embedded "Gauge" style vote with liquid weights
 abstract contract ERC20Gauges is ERC20MultiVotes, ReentrancyGuard, IERC20Gauges {
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -38,12 +44,15 @@ abstract contract ERC20Gauges is ERC20MultiVotes, ReentrancyGuard, IERC20Gauges 
     /// @inheritdoc IERC20Gauges
     uint32 public immutable override gaugeCycleLength;
 
+    /* @audit According to docs in IERC20Gauges, votes cannot increment in the grace period */
     /// @inheritdoc IERC20Gauges
     uint32 public immutable override incrementFreezeWindow;
 
+    /* @info User -> Gauge -> Weight */
     /// @inheritdoc IERC20Gauges
     mapping(address => mapping(address => uint112)) public override getUserGaugeWeight;
 
+    /* @info Total allocated weight across all gauges */ 
     /// @inheritdoc IERC20Gauges
     /// @dev NOTE this may contain weights for deprecated gauges
     mapping(address => uint112) public override getUserWeight;
@@ -52,9 +61,11 @@ abstract contract ERC20Gauges is ERC20MultiVotes, ReentrancyGuard, IERC20Gauges 
     /// @dev NOTE this may contain weights for deprecated gauges
     mapping(address => Weight) internal _getGaugeWeight;
 
+    /* @audit Why is the _totalWeight only incremented? */
     /// @notice the total global allocated weight ONLY of live gauges
     Weight internal _totalWeight;
 
+    // @TODO check if there is delete _userGauges[address] in the code. It won't work
     mapping(address => EnumerableSet.AddressSet) internal _userGauges;
 
     EnumerableSet.AddressSet internal _gauges;
@@ -74,6 +85,9 @@ abstract contract ERC20Gauges is ERC20MultiVotes, ReentrancyGuard, IERC20Gauges 
     function _getGaugeCycleEnd() internal view returns (uint32) {
         uint32 nowPlusOneCycle = block.timestamp.toUint32() + gaugeCycleLength;
         unchecked {
+            /* @audit Is this checked that gagueCycleLength is not 0? 
+            * Division by zero will revert in the unchecked block too 
+            * The nominator is bigger than denominator -> no chance for revert */
             return (nowPlusOneCycle / gaugeCycleLength) * gaugeCycleLength; // cannot divide by zero and always <= nowPlusOneCycle so no overflow
         }
     }
@@ -90,6 +104,7 @@ abstract contract ERC20Gauges is ERC20MultiVotes, ReentrancyGuard, IERC20Gauges 
     }
 
     function _getStoredWeight(Weight storage gaugeWeight, uint32 currentCycle) internal view returns (uint112) {
+        /* @audit Is this implementation correct? Return current weight if cycle is smaller than current? */
         return gaugeWeight.currentCycle < currentCycle ? gaugeWeight.currentWeight : gaugeWeight.storedWeight;
     }
 
@@ -103,8 +118,6 @@ abstract contract ERC20Gauges is ERC20MultiVotes, ReentrancyGuard, IERC20Gauges 
         return _getStoredWeight(_totalWeight, _getGaugeCycleEnd());
     }
 
-    /* @audit values() return bytes32[] memory, here we are returning address[] memory, 
-    * how does that work? */
     /// @inheritdoc IERC20Gauges
     function gauges() external view returns (address[] memory) {
         return _gauges.values();
@@ -121,6 +134,7 @@ abstract contract ERC20Gauges is ERC20MultiVotes, ReentrancyGuard, IERC20Gauges 
         }
     }
 
+    /* @audit There is no similar functionality for isDeprecatedGauge */
     /// @inheritdoc IERC20Gauges
     function isGauge(address gauge) external view returns (bool) {
         return _gauges.contains(gauge) && !_deprecatedGauges.contains(gauge);
@@ -190,6 +204,7 @@ abstract contract ERC20Gauges is ERC20MultiVotes, ReentrancyGuard, IERC20Gauges 
     function incrementGauge(address gauge, uint112 weight) external nonReentrant returns (uint112 newUserWeight) {
         uint32 currentCycle = _getGaugeCycleEnd();
         _incrementGaugeWeight(msg.sender, gauge, weight, currentCycle);
+        /* @audit If user has no available weight, the call will revert below */
         return _incrementUserAndGlobalWeights(msg.sender, weight, currentCycle);
     }
 
@@ -204,12 +219,17 @@ abstract contract ERC20Gauges is ERC20MultiVotes, ReentrancyGuard, IERC20Gauges 
     function _incrementGaugeWeight(address user, address gauge, uint112 weight, uint32 cycle) internal {
         if (!_gauges.contains(gauge) || _deprecatedGauges.contains(gauge)) revert InvalidGaugeError();
         unchecked {
+            /* @audit Does this pass with the 5 day shift? */
             if (cycle - block.timestamp <= incrementFreezeWindow) revert IncrementFreezeError();
         }
 
+        /* @audit There is no check before that that the user even has available weight.*/
+        /* @audit-ok There is state updated after this call, possible reentrancy? Probably not, because
+        * there is no arbitrary call */
         IBaseV2Gauge(gauge).accrueBribes(user);
 
         bool added = _userGauges[user].add(gauge); // idempotent add
+        /* @audit A lot of conditions to satisfy */
         if (added && _userGauges[user].length() > maxGauges && !canContractExceedMaxGauges[user]) {
             revert MaxGaugeError();
         }
@@ -234,6 +254,8 @@ abstract contract ERC20Gauges is ERC20MultiVotes, ReentrancyGuard, IERC20Gauges 
     {
         newUserWeight = getUserWeight[user] + weight;
 
+        /* @audit There is no other check that would revert the whole incrementGauge transaction other than this. 
+        * Are votes always equal the available weight? */
         // new user weight must be less than or equal to the total user weight
         if (newUserWeight > getVotes(user)) revert OverWeightError();
 
@@ -243,12 +265,17 @@ abstract contract ERC20Gauges is ERC20MultiVotes, ReentrancyGuard, IERC20Gauges 
         _writeGaugeWeight(_totalWeight, _add112, weight, cycle);
     }
 
+    /* @audit What if I pass duplicate elements to an array? 
+        * It just updates the vault twice */
+    /* @audit What if I pass an empty array? */
+    /* @audit What if I pass the default values in the array? */
     /// @inheritdoc IERC20Gauges
     function incrementGauges(address[] calldata gaugeList, uint112[] calldata weights)
         external
         nonReentrant
         returns (uint256 newUserWeight)
     {
+        /* @audit-issue This could be probably smaller because such a big list would revert out of gas anyway */
         uint256 size = gaugeList.length;
         if (weights.length != size) revert SizeMismatchError();
 
@@ -263,6 +290,8 @@ abstract contract ERC20Gauges is ERC20MultiVotes, ReentrancyGuard, IERC20Gauges 
             uint112 weight = weights[i];
             weightsSum += weight;
 
+            /* @audit In the decrementGauge function the write happens directly, why is that? */
+            /* @info This one writes to the _totalWeight via _writeGaugeWeight */
             _incrementGaugeWeight(msg.sender, gauge, weight, currentCycle);
             unchecked {
                 i++;
@@ -275,11 +304,14 @@ abstract contract ERC20Gauges is ERC20MultiVotes, ReentrancyGuard, IERC20Gauges 
     function decrementGauge(address gauge, uint112 weight) external nonReentrant returns (uint112 newUserWeight) {
         uint32 currentCycle = _getGaugeCycleEnd();
 
+        /* @audit Why can't decrement from deprecated gauge? 
+        * How do you remove the weight from deprecated one? */
         // All operations will revert on underflow, protecting against bad inputs
         _decrementGaugeWeight(msg.sender, gauge, weight, currentCycle);
         if (!_deprecatedGauges.contains(gauge)) {
             _writeGaugeWeight(_totalWeight, _subtract112, weight, currentCycle);
         }
+        /* @audit Why decrement does not update GlobalWeights? */
         return _decrementUserWeights(msg.sender, weight);
     }
 
@@ -296,6 +328,7 @@ abstract contract ERC20Gauges is ERC20MultiVotes, ReentrancyGuard, IERC20Gauges 
 
         uint112 oldWeight = getUserGaugeWeight[user][gauge];
 
+        /* @audit Why is this called before updating the other state vars? */
         IBaseV2Gauge(gauge).accrueBribes(user);
 
         getUserGaugeWeight[user][gauge] = oldWeight - weight;
