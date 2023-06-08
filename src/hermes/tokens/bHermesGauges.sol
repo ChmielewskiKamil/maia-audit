@@ -16,6 +16,7 @@ import {IbHermesUnderlying} from "../interfaces/IbHermesUnderlying.sol";
  *          votes on bribes rewards allocation for Hermes gauges in a
  *          manipulation-resistant manner.
  *
+ *          // audit What are the approved overrides? 
  *          The bHermes owner/authority ONLY control the maximum number
  *          and approved overrides of gauges and delegates, as well as the live gauge list.
  */
@@ -23,6 +24,8 @@ contract bHermesGauges is ERC20Gauges, IbHermesUnderlying {
     /// @inheritdoc IbHermesUnderlying
     address public immutable bHermes;
 
+    /* @audit The bHermesVotes and bHermesBoost only instantiate the ERC20 itself 
+    * Why does this one also create ERC20Gauges? */
     constructor(address _owner, uint32 _rewardsCycleLength, uint32 _incrementFreezeWindow)
         ERC20Gauges(_rewardsCycleLength, _incrementFreezeWindow)
         ERC20("bHermes Gauges", "bHERMES-G", 18)

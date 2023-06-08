@@ -109,6 +109,7 @@ abstract contract BaseV2Gauge is Ownable, IBaseV2Gauge {
 
     /// @inheritdoc IBaseV2Gauge
     function accrueBribes(address user) external {
+        /* @audit How does one add _bribeFlywheels? */
         FlywheelCore[] storage _bribeFlywheels = bribeFlywheels;
         uint256 length = _bribeFlywheels.length;
         for (uint256 i = 0; i < length;) {

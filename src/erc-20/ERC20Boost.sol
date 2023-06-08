@@ -30,6 +30,10 @@ abstract contract ERC20Boost is ERC20, Ownable, IERC20Boost {
     /// @inheritdoc IERC20Boost
     mapping(address => uint256) public override getUserBoost;
 
+    /* @audit TODO This is a complex data structure deleting elements does not work
+    * check https://github.com/sherlock-audit/2023-03-teller-judging/issues/88 
+    * MAIA uses older version without the warning 
+    * https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/structs/EnumerableSet.sol*/
     mapping(address => EnumerableSet.AddressSet) internal _userGauges;
 
     /* @audit How to write to this? */
