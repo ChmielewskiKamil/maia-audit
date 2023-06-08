@@ -545,6 +545,10 @@ abstract contract ERC20Gauges is ERC20MultiVotes, ReentrancyGuard, IERC20Gauges 
         return super.transferFrom(from, to, amount);
     }
 
+    /* @audit-ok Given that this is greedy algorithm, what happens if you give it 
+    * even inputs? 
+    * If you go for a weight that is equal to userFreeWeight, the algorithm 
+    * will return early. */
     /**
      * @notice A greedy algorithm for freeing weight before a token burn/transfer
      * @dev Frees up entire gauges, so likely will free more than `weight`
