@@ -22,6 +22,7 @@ contract MultiRewardsDepot is Ownable, RewardsDepot, IMultiRewardsDepot {
     /// @notice _isAsset[asset] => true/false
     mapping(address => bool) private _isAsset;
 
+    /* @audit This is the UniV3Gauge? */
     /**
      * @notice MultiRewardsDepot constructor
      *  @param _owner owner of the contract

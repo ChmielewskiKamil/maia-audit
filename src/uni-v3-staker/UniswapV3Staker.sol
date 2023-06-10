@@ -108,6 +108,10 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
     /// @inheritdoc IUniswapV3Staker
     bHermesBoost public immutable hermesGaugeBoost;
 
+    /* @audit Is the `address _minter` the `BaseV2Minter`?
+    * Probably yes, according to the interface: 
+    * "It's the address to send undistributed rewards to".
+    * What are undistributed rewards then? Are there distributed rewards? */
     /// @param _factory the Uniswap V3 factory
     /// @param _nonfungiblePositionManager the NFT position manager contract address
     /// @param _maxIncentiveStartLeadTime the max duration of an incentive in seconds
@@ -137,12 +141,16 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
     function createIncentiveFromGauge(uint256 reward) external {
         if (reward <= 0) revert IncentiveRewardMustBePositive();
 
-        /* @audit-issue Shouldn't this computeStart? This is fcked for sure. */
+        /* @audit-issue Shouldn't this use computeStart? This is fcked for sure. */
         uint96 startTime = IncentiveTime.computeEnd(block.timestamp);
 
         /* @audit-ok Who is supposed to be msg.sender for this function? 
         * gaugePool returns the pool addr for a given gauge. 
         * It means that it is supposed to be called by the gauge */
+
+        /* @audit Would it be possible to add EOA to the gaugePool? 
+        * Like: msg.sender is mee and the returned pool is an arbitrary address.
+        * The question is: What modifies the gaugePool? */
         IUniswapV3Pool pool = gaugePool[msg.sender];
 
         if (address(pool) == address(0)) revert IncentiveCallerMustBeRegisteredGauge();
@@ -152,13 +160,18 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
 
         incentives[incentiveId].totalRewardUnclaimed += reward;
 
-        /* @audit This transfers HERMES tokens from the gauge to the staker contract.
-        * How does the gauge get HERMES tokens in the first place? */
+        /* @audit-ok This transfers HERMES tokens from the gauge to the staker contract.
+        * How does the gauge get HERMES tokens in the first place? 
+        * It gets them from the FlywheelGaugeRewards, which got the tokens from BaseMinterV2 */
         hermes.safeTransferFrom(msg.sender, address(this), reward);
 
         emit IncentiveCreated(pool, startTime, reward);
     }
 
+    /* @audit How do you get an incentive key?
+    * This is not a secret info, it's just the pool and incentive program start time.
+    * Anyone can create such program, it requires sending some HERMES tokens as rewards
+    * for participants. */
     /// @inheritdoc IUniswapV3Staker
     function createIncentive(IncentiveKey memory key, uint256 reward) external {
         if (reward <= 0) revert IncentiveRewardMustBePositive();
@@ -209,6 +222,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
 
         hermes.safeTransfer(minter, refund);
 
+        /* @audit What does that mean? */
         // note we never clear totalSecondsClaimedX128
 
         emit IncentiveEnded(incentiveId, refund);
@@ -218,6 +232,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
                             DEPOSIT TOKEN LOGIC
     //////////////////////////////////////////////////////////////*/
 
+    /* @audit Why the first param does not have a name?*/
     /// @dev Upon receiving a Uniswap V3 ERC721, create the token deposit and
     ///      _stakes in current incentive setting owner to `from`.
     /// @inheritdoc IERC721Receiver
@@ -245,6 +260,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
                             WITHDRAW TOKEN LOGIC
     //////////////////////////////////////////////////////////////*/
 
+    /* @audit Does this make sure that the recipient is aware of the ERC721? */
     /// @inheritdoc IUniswapV3Staker
     function withdrawToken(uint256 tokenId, address to, bytes memory data) external {
         if (to == address(0)) revert InvalidRecipient();
@@ -499,6 +515,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
 
         UniswapV3Gauge gauge = gauges[pool]; // saves another SLOAD if no tokenId is attached
 
+        /* @audit So if user sends an the UNIv3NFT he gets attached to a gauge and receives the rewards. 
+        * What does the gauge get from it? */
         if (!hermesGaugeBoost.isUserGauge(tokenOwner, address(gauge))) {
             _userAttachements[tokenOwner][pool] = tokenId;
             gauge.attachUser(tokenOwner);
@@ -528,6 +546,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
                         GAUGE UPDATE LOGIC
     //////////////////////////////////////////////////////////////*/
 
+    /* @audit-issue Why is this not access control protected? */
     /// @inheritdoc IUniswapV3Staker
     function updateGauges(IUniswapV3Pool uniswapV3Pool) external {
         address uniswapV3Gauge = address(uniswapV3GaugeFactory.strategyGauges(address(uniswapV3Pool)));
@@ -545,6 +564,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
         updatePoolMinimumWidth(uniswapV3Pool);
     }
 
+    /* @audit What are the bribes and bribeDepots? This must be connected to the way 
+    * Hermes makes money. */
     /// @inheritdoc IUniswapV3Staker
     function updateBribeDepot(IUniswapV3Pool uniswapV3Pool) public {
         address newDepot = address(gauges[uniswapV3Pool].multiRewardsDepot());

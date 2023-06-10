@@ -179,6 +179,8 @@ contract BaseV2Minter is Ownable, IBaseV2Minter {
             uint256 share = (_required * daoShare) / base;
             _required += share;
             uint256 _balanceOf = underlying.balanceOf(address(this));
+            
+            /* @info HERE IS THE MINT*/
             if (_balanceOf < _required) {
                 HERMES(underlying).mint(address(this), _required - _balanceOf);
             }
@@ -201,6 +203,7 @@ contract BaseV2Minter is Ownable, IBaseV2Minter {
                          REWARDS STREAM LOGIC
     //////////////////////////////////////////////////////////////*/
 
+    /* @audit-issue Misleading function name, Getter performs transfer */
     /// @inheritdoc IBaseV2Minter
     function getRewards() external returns (uint256 totalQueuedForCycle) {
         if (address(flywheelGaugeRewards) != msg.sender) revert NotFlywheelGaugeRewards();

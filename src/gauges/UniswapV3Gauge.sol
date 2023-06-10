@@ -47,6 +47,8 @@ contract UniswapV3Gauge is BaseV2Gauge, IUniswapV3Gauge {
         rewardToken.safeApprove(_uniswapV3Staker, type(uint256).max);
     }
 
+    /* @audit This is called whenever newEpoch() is called on the BaseV2Gauge.
+    * Who is supposed to call newEpoch()? */
     /**
      *  @notice Distributes weekly emissions to the Uniswap V3 Staker for the current epoch.
      *  @dev must be called during the 12-hour offset after an epoch ends
