@@ -200,6 +200,7 @@ contract BaseV2GaugeTest is DSTestPlus {
         gauge.newEpoch();
     }
 
+    /* @audit THese epoch tests does not make any sense, they are not testing anything lol */
     function testNewEpoch() external {
         hevm.warp(WEEK); // skip to cycle 1
 
