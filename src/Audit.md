@@ -9,7 +9,7 @@
   65 src/hermes/tokens/HERMES.sol ✅
   36 src/hermes/tokens/bHermesBoost.sol ✅
   43 src/hermes/tokens/bHermesGauges.sol ✅
-  43 src/hermes/tokens/bHermesVotes.sol
+  43 src/hermes/tokens/bHermesVotes.sol ✅
  963 total
 
 ### ERC-4626
@@ -26,15 +26,15 @@
 ### ERC-20
  345 src/erc-20/ERC20Boost.sol ✅
  556 src/erc-20/ERC20Gauges.sol ✅
- 379 src/erc-20/ERC20MultiVotes.sol
-  10 src/erc-20/interfaces/Errors.sol
+ 379 src/erc-20/ERC20MultiVotes.sol ✅
+  10 src/erc-20/interfaces/Errors.sol ✅
  239 src/erc-20/interfaces/IERC20Boost.sol ✅
  281 src/erc-20/interfaces/IERC20Gauges.sol ✅
- 177 src/erc-20/interfaces/IERC20MultiVotes.sol
+ 177 src/erc-20/interfaces/IERC20MultiVotes.sol ✅
 1987 total
 
 ### Gauges
- 159 src/gauges/BaseV2Gauge.sol
+ 159 src/gauges/BaseV2Gauge.sol ✅
   77 src/gauges/UniswapV3Gauge.sol
  166 src/gauges/factories/BaseV2GaugeFactory.sol
  164 src/gauges/factories/BaseV2GaugeManager.sol
