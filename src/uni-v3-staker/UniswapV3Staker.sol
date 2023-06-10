@@ -140,7 +140,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
         /* @audit-issue Shouldn't this computeStart? This is fcked for sure. */
         uint96 startTime = IncentiveTime.computeEnd(block.timestamp);
 
-        /* @audit-ok Is this function supposed to be called by the pool? 
+        /* @audit-ok Who is supposed to be msg.sender for this function? 
         * gaugePool returns the pool addr for a given gauge. 
         * It means that it is supposed to be called by the gauge */
         IUniswapV3Pool pool = gaugePool[msg.sender];
