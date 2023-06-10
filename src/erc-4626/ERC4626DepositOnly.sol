@@ -32,6 +32,9 @@ abstract contract ERC4626DepositOnly is ERC20, IERC4626DepositOnly {
                         DEPOSIT/WITHDRAWAL LOGIC
     //////////////////////////////////////////////////////////////*/
 
+    /* @audit-ok What's the difference between `deposit` and `mint`? 
+    * In the `deposit` function user specifies the exact amount of assets that he wants to exchange to shares,
+    * while in the `mint` function user specifies the exact amount of shares that he wants to receive */
     /// @inheritdoc IERC4626DepositOnly
     function deposit(uint256 assets, address receiver) public virtual returns (uint256 shares) {
         // Check for rounding error since we round down in previewDeposit.

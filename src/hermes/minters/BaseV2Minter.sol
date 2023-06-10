@@ -12,6 +12,9 @@ import {FlywheelGaugeRewards} from "@rewards/rewards/FlywheelGaugeRewards.sol";
 
 import {IBaseV2Minter} from "../interfaces/IBaseV2Minter.sol";
 
+/* @audit 
+* The reward stream in the gauges come from the BaseV2Minter, this contract is responsible for
+* creating the HERMES reward token. */
 /* @audit What is the B(3, 3) system? */
 /// @title Base V2 Minter - Mints HERMES tokens for the B(3,3) system
 contract BaseV2Minter is Ownable, IBaseV2Minter {

@@ -11,6 +11,9 @@ interface IERC20MultiVotes {
                                 STRUCTS
     //////////////////////////////////////////////////////////////*/
 
+    /* @audit-ok Check if you can delegate votes for a single block to pass the check 
+    * There was a similar finding in Mute Switch: https://solodit.xyz/issues/16042
+    * It gets updated properly. It keeps checkpoints for each block. */
     /**
      * @notice A checkpoint for marking the number of votes from a given block.
      * @param fromBlock the block number that the votes were delegated.
@@ -85,6 +88,7 @@ interface IERC20MultiVotes {
      */
     function setContractExceedMaxDelegates(address account, bool canExceedMax) external;
 
+    /* @audit-issue NonCritical Why is this in the Admin Operations category? */
     /**
      * @notice mapping from a delegator to the total number of delegated votes.
      */

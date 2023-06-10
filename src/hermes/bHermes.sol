@@ -82,10 +82,9 @@ contract bHermes is UtilityManager, ERC4626DepositOnly {
     /// @dev Checks available weight allows for the call.
     modifier checkWeight(uint256 amount) override {
         /* @audit Amount of what? 
-        * The amount of HERMES which is the main incentive system token
-        *
-        * The statement above might be incorrect, this is overriden from UtilityManager.
-        * It is the amount of ??? */
+        * The amount of bHERMES. It is used to check if user has burned his HERMES tokens
+        * and can claim utilities with his bHermes tokens.
+        * */
         if (balanceOf[msg.sender] < amount + userClaimedWeight[msg.sender]) {
             revert InsufficientShares();
         }

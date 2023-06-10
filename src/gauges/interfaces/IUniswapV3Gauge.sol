@@ -57,6 +57,7 @@ interface IUniswapV3Gauge {
     /// @notice The Uniswap V3 Staker contract
     function uniswapV3Staker() external view returns (address);
 
+    /* @audit What is UniswapV3 width? */
     /// @notice The minimum width of the Uniswap V3 position to be eligible for staking
     function minimumWidth() external view returns (uint24);
 

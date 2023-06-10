@@ -137,8 +137,12 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
     function createIncentiveFromGauge(uint256 reward) external {
         if (reward <= 0) revert IncentiveRewardMustBePositive();
 
+        /* @audit-issue Shouldn't this computeStart? This is fcked for sure. */
         uint96 startTime = IncentiveTime.computeEnd(block.timestamp);
 
+        /* @audit-ok Is this function supposed to be called by the pool? 
+        * gaugePool returns the pool addr for a given gauge. 
+        * It means that it is supposed to be called by the gauge */
         IUniswapV3Pool pool = gaugePool[msg.sender];
 
         if (address(pool) == address(0)) revert IncentiveCallerMustBeRegisteredGauge();
@@ -148,6 +152,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
 
         incentives[incentiveId].totalRewardUnclaimed += reward;
 
+        /* @audit This transfers HERMES tokens from the gauge to the staker contract.
+        * How does the gauge get HERMES tokens in the first place? */
         hermes.safeTransferFrom(msg.sender, address(this), reward);
 
         emit IncentiveCreated(pool, startTime, reward);

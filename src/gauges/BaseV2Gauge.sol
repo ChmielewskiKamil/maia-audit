@@ -16,6 +16,15 @@ import {BaseV2GaugeFactory} from "./factories/BaseV2GaugeFactory.sol";
 
 import {IBaseV2Gauge} from "./interfaces/IBaseV2Gauge.sol";
 
+/* @audit 
+* What this contract does on high-level? 
+* Who interacts with this contract? 
+    * This is the base for custom gauges like UniswapV3Gauge
+    * `Users` can use their bHermesBoost tokens to boost their liquidity mining rewards.
+    * `Strategy` can attach and detach users from getting the reward distribution
+    * 
+* What is the incentive to protocol to boost user rewards? */
+
 /// @title Base V2 Gauge - Base contract for handling liquidity provider incentives and voter's bribes.
 abstract contract BaseV2Gauge is Ownable, IBaseV2Gauge {
     /*///////////////////////////////////////////////////////////////
@@ -37,6 +46,7 @@ abstract contract BaseV2Gauge is Ownable, IBaseV2Gauge {
     /// @inheritdoc IBaseV2Gauge
     mapping(FlywheelCore => bool) public override added;
 
+    /* @info Strategy address is for ex addr of UniV3Staker */
     /// @inheritdoc IBaseV2Gauge
     address public override strategy;
 
@@ -63,6 +73,8 @@ abstract contract BaseV2Gauge is Ownable, IBaseV2Gauge {
         flywheelGaugeRewards = _flywheelGaugeRewards;
         rewardToken = _flywheelGaugeRewards.rewardToken();
         hermesGaugeBoost = BaseV2GaugeFactory(msg.sender).bHermesBoostToken();
+        /* @info The strategy is for example UniswapV3Pool contract 
+        * THIS IS INCORRECT, strategy is probably the staker */
         strategy = _strategy;
 
         epoch = (block.timestamp / WEEK) * WEEK;
@@ -88,6 +100,7 @@ abstract contract BaseV2Gauge is Ownable, IBaseV2Gauge {
 
             uint256 accruedRewards = flywheelGaugeRewards.getAccruedRewards();
 
+            /* @audit What happens to the rewards if newEpoch wasn't called for an epoch? */
             distribute(accruedRewards);
 
             emit Distribute(accruedRewards, _newEpoch);
@@ -107,6 +120,7 @@ abstract contract BaseV2Gauge is Ownable, IBaseV2Gauge {
         hermesGaugeBoost.detach(user);
     }
 
+    /* @audit Do users receive bribes? And the strategy receives boosts? */
     /// @inheritdoc IBaseV2Gauge
     function accrueBribes(address user) external {
         /* @audit How does one add _bribeFlywheels? */
@@ -146,6 +160,11 @@ abstract contract BaseV2Gauge is Ownable, IBaseV2Gauge {
         /// @dev Can only remove active flywheels
         if (!isActive[bribeFlywheel]) revert FlywheelNotActive();
 
+        /* @audit Why does it only remove the flywheel from isActive mapping 
+        * and not from the flywheel lists? 
+        *
+        * It means that isActive will be out of sync with the `added` mapping 
+        * and `bribeFlywheels` array. */
         /// @dev This is permanent; can't be re-added
         delete isActive[bribeFlywheel];
 

@@ -22,6 +22,8 @@ contract UniswapV3Gauge is BaseV2Gauge, IUniswapV3Gauge {
     /// @inheritdoc IUniswapV3Gauge
     uint24 public override minimumWidth;
 
+    /* @audit-issue Why are they passing pool address as the strategy address?
+    * Isn't the staker contract a strategy? It is, this might be an issue. */
     /**
      * @notice Constructs the UniswapV3Gauge contract.
      * @param _flywheelGaugeRewards The FlywheelGaugeRewards contract.

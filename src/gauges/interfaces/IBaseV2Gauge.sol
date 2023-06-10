@@ -55,6 +55,7 @@ interface IBaseV2Gauge {
     /// @notice the flywheel core contract
     function flywheelGaugeRewards() external returns (FlywheelGaugeRewards);
 
+    /* @audit Is FlywheelCore a bribe token? */
     /// @notice mapping of whitelisted bribe tokens.
     function isActive(FlywheelCore flywheel) external returns (bool);
 

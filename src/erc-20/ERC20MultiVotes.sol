@@ -43,12 +43,18 @@ abstract contract ERC20MultiVotes is ERC20, Ownable, IERC20MultiVotes {
         return balanceOf[account] - userDelegatedVotes[account];
     }
 
+    /* @audit-issue This function returns uint256 but Votes are held as uint224 */
     /// @inheritdoc IERC20MultiVotes
     function getVotes(address account) public view virtual returns (uint256) {
+        /* @audit-ok WTF is pos?
+        * Its a number to get the position of elements */
         uint256 pos = _checkpoints[account].length;
+        /* @audit-ok Why - 1? 
+        * Mapping elements are enumerated from 0, not giving -1 results in out of bounds error */
         return pos == 0 ? 0 : _checkpoints[account][pos - 1].votes;
     }
 
+    /* @audit-issue This function is useless, it does the exact same thing as getVotes with 1 level of indirection */
     /// @inheritdoc IERC20MultiVotes
     function userUnusedVotes(address user) public view virtual returns (uint256) {
         return getVotes(user);
@@ -60,6 +66,8 @@ abstract contract ERC20MultiVotes is ERC20, Ownable, IERC20MultiVotes {
         return _checkpointsLookup(_checkpoints[account], blockNumber);
     }
 
+    /* @audit TODO Compare this with OpenZeppelin ERC20Votes */
+    /* @audit Is this expensive operation? Where is this used? */
     /// @dev Lookup a value in a list of (sorted) checkpoints.
     function _checkpointsLookup(Checkpoint[] storage ckpts, uint256 blockNumber) private view returns (uint256) {
         // We run a binary search to look for the earliest checkpoint taken after `blockNumber`.
@@ -79,6 +87,7 @@ abstract contract ERC20MultiVotes is ERC20, Ownable, IERC20MultiVotes {
 
     function average(uint256 a, uint256 b) internal pure returns (uint256) {
         // (a + b) / 2 can overflow.
+        /* @audit What's the `&` operator? */
         return (a & b) + (a ^ b) / 2;
     }
 
@@ -86,9 +95,12 @@ abstract contract ERC20MultiVotes is ERC20, Ownable, IERC20MultiVotes {
                         ADMIN OPERATIONS
     //////////////////////////////////////////////////////////////*/
 
+    
     /// @inheritdoc IERC20MultiVotes
     uint256 public override maxDelegates;
 
+    /* @audit Check if someone can DOS this special contract that can ExceedMax. 
+    * How far can this be exceeded? */
     /// @inheritdoc IERC20MultiVotes
     mapping(address => bool) public override canContractExceedMaxDelegates;
 
@@ -102,6 +114,7 @@ abstract contract ERC20MultiVotes is ERC20, Ownable, IERC20MultiVotes {
 
     /// @inheritdoc IERC20MultiVotes
     function setContractExceedMaxDelegates(address account, bool canExceedMax) external onlyOwner {
+        /* @audit What if the contract gets later destroyed? */
         if (canExceedMax && account.code.length == 0) revert Errors.NonContractError(); // can only approve contracts
 
         canContractExceedMaxDelegates[account] = canExceedMax;
@@ -161,6 +174,7 @@ abstract contract ERC20MultiVotes is ERC20, Ownable, IERC20MultiVotes {
     function _delegate(address delegator, address newDelegatee) internal virtual {
         uint256 count = delegateCount(delegator);
 
+        /* @audit Why does it revert, it means that you can have only 1 delegatee? */
         // undefined behavior for delegateCount > 1
         if (count > 1) revert DelegationError();
 
@@ -172,9 +186,12 @@ abstract contract ERC20MultiVotes is ERC20, Ownable, IERC20MultiVotes {
         }
 
         // redelegate only if newDelegatee is not empty
+        /* @audit-issue Change if to require, unless delegation to 0 is a feature */
         if (newDelegatee != address(0)) {
             _incrementDelegation(delegator, newDelegatee, freeVotes(delegator));
         }
+        /* @audit-issue (Followup) This event will be emited if the newDelegate is addr 0, 
+        * This is only here for backwards compatibility with OZ tho */
         emit DelegateChanged(delegator, oldDelegatee, newDelegatee);
     }
 
@@ -191,6 +208,7 @@ abstract contract ERC20MultiVotes is ERC20, Ownable, IERC20MultiVotes {
         if (delegatee == address(0) || free < amount || amount == 0) revert DelegationError();
 
         bool newDelegate = _delegates[delegator].add(delegatee); // idempotent add
+
         if (newDelegate && delegateCount(delegator) > maxDelegates && !canContractExceedMaxDelegates[delegator]) {
             // if is a new delegate, exceeds max and is not approved to exceed, revert
             revert DelegationError();
@@ -217,6 +235,7 @@ abstract contract ERC20MultiVotes is ERC20, Ownable, IERC20MultiVotes {
          *         If delegatee does not have any free votes and doesn't change their vote delegator won't be able to undelegate.
          *         If it is a contract, a possible safety measure is to have an emergency clear votes.
          */
+        /* @audit-issue This function is useless as it calls getVOtes under the hood. Is it an issue? */
         if (userUnusedVotes(delegatee) < amount) revert UndelegationVoteError();
 
         uint256 newDelegates = _delegatesVotesCount[delegator][delegatee] - amount;
@@ -228,6 +247,7 @@ abstract contract ERC20MultiVotes is ERC20, Ownable, IERC20MultiVotes {
         _delegatesVotesCount[delegator][delegatee] = newDelegates;
         userDelegatedVotes[delegator] -= amount;
 
+        /* @audit-issue Why does it emit the vent before modifying state */
         emit Undelegation(delegator, delegatee, amount);
         _writeCheckpoint(delegatee, _subtract, amount);
     }
@@ -241,6 +261,7 @@ abstract contract ERC20MultiVotes is ERC20, Ownable, IERC20MultiVotes {
     function _writeCheckpoint(address delegatee, function(uint256, uint256) view returns (uint256) op, uint256 delta)
         private
     {
+        /* @audit Complex logic, investigate further */
         Checkpoint[] storage ckpts = _checkpoints[delegatee];
 
         uint256 pos = ckpts.length;
@@ -248,6 +269,8 @@ abstract contract ERC20MultiVotes is ERC20, Ownable, IERC20MultiVotes {
         uint256 newWeight = op(oldWeight, delta);
 
         if (pos > 0 && ckpts[pos - 1].fromBlock == block.number) {
+            /* @audit-ok There is no check if the newWeight can fit into uint224 
+            * Solady will revert, its safe cast lib that reverts ono overflow */
             ckpts[pos - 1].votes = newWeight.toUint224();
         } else {
             ckpts.push(Checkpoint({fromBlock: block.number.toUint32(), votes: newWeight.toUint224()}));
@@ -362,6 +385,7 @@ abstract contract ERC20MultiVotes is ERC20, Ownable, IERC20MultiVotes {
 
     function delegateBySig(address delegatee, uint256 nonce, uint256 expiry, uint8 v, bytes32 r, bytes32 s) public {
         require(block.timestamp <= expiry, "ERC20MultiVotes: signature expired");
+        /* @audit Investigate ecrecover issues */
         address signer = ecrecover(
             keccak256(
                 abi.encodePacked(

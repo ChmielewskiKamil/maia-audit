@@ -254,6 +254,7 @@ abstract contract ERC20Gauges is ERC20MultiVotes, ReentrancyGuard, IERC20Gauges 
     {
         newUserWeight = getUserWeight[user] + weight;
 
+        /* @audit This is also comparing different types: uint112 > uint256 (which should be uint224)*/
         /* @audit There is no other check that would revert the whole incrementGauge transaction other than this. 
         * Are votes always equal the available weight? */
         // new user weight must be less than or equal to the total user weight
