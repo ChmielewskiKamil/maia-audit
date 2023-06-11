@@ -241,9 +241,11 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
         override
         returns (bytes4)
     {
+        /* @audit Why is this assigning it to a local variable instead of using address(nonfungiblePositionManager)? */
         INonfungiblePositionManager _nonfungiblePositionManager = nonfungiblePositionManager;
         if (msg.sender != address(_nonfungiblePositionManager)) revert TokenNotUniswapV3NFT();
 
+        /* @audit-followup Here they are using nonfungiblePositionManager directly */
         (IUniswapV3Pool pool, int24 tickLower, int24 tickUpper, uint128 liquidity) =
             NFTPositionInfo.getPositionInfo(factory, nonfungiblePositionManager, tokenId);
 
@@ -260,6 +262,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
                             WITHDRAW TOKEN LOGIC
     //////////////////////////////////////////////////////////////*/
 
+    /* @audit This function should not let withdraw someone elses token */
     /* @audit Does this make sure that the recipient is aware of the ERC721? */
     /// @inheritdoc IUniswapV3Staker
     function withdrawToken(uint256 tokenId, address to, bytes memory data) external {
@@ -280,6 +283,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
                             REWARD LOGIC
     //////////////////////////////////////////////////////////////*/
 
+    /* @audit-ok What action writes to the rewards state variable? 
+    * The _unstake function triggers rewards calculation and updates. */
     /// @inheritdoc IUniswapV3Staker
     function claimReward(address to, uint256 amountRequested) external returns (uint256 reward) {
         reward = rewards[msg.sender];
@@ -295,6 +300,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
         emit RewardClaimed(to, reward);
     }
 
+    /* @audit Does claiming the rewards require first unstaking? 
+    * Yes it does require unstaking first (at least that's what they are doing in the tests). */
     /// @inheritdoc IUniswapV3Staker
     function claimAllRewards(address to) external returns (uint256 reward) {
         reward = rewards[msg.sender];
@@ -376,6 +383,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
     /// @inheritdoc IUniswapV3Staker
     function unstakeToken(uint256 tokenId) external {
         IncentiveKey storage incentiveId = stakedIncentiveKey[tokenId];
+        /* @audit What is this check about? It's all over the code. */
         if (incentiveId.startTime != 0) _unstakeToken(incentiveId, tokenId, true);
     }
 
@@ -384,7 +392,9 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
         _unstakeToken(key, tokenId, true);
     }
 
+    /* @audit This function has many interactions. What are the things it does? */
     function _unstakeToken(IncentiveKey memory key, uint256 tokenId, bool isNotRestake) private {
+        /* @info Liquidity NFT position info: owner, tick lower upper and when staked */
         Deposit storage deposit = deposits[tokenId];
 
         (uint96 endTime, uint256 stakedDuration) =
@@ -392,6 +402,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
 
         address owner = deposit.owner;
 
+        /* @audit-issue Is this check correct? Timestamp < endTime */
+        /* @audit Check default value of isNotRestake && does isNotRestake is true when is not restaken? */
         // anyone can call restakeToken if the block time is after the end time of the incentive
         if ((isNotRestake || block.timestamp < endTime) && owner != msg.sender) revert NotCalledByOwner();
 
@@ -399,6 +411,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
             // scope for bribeAddress, avoids stack too deep errors
             address bribeAddress = bribeDepots[key.pool];
 
+        /* @audit What happens to the fees after they get to the depot? */
             if (bribeAddress != address(0)) {
                 nonfungiblePositionManager.collect(
                     INonfungiblePositionManager.CollectParams({
@@ -515,8 +528,10 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
 
         UniswapV3Gauge gauge = gauges[pool]; // saves another SLOAD if no tokenId is attached
 
-        /* @audit So if user sends an the UNIv3NFT he gets attached to a gauge and receives the rewards. 
-        * What does the gauge get from it? */
+        /* @audit So if user sends the UNIv3NFT he gets attached to a gauge and receives the rewards. 
+        * What does the gauge get from it? 
+        * From my current understanding the protocol,
+        * gets the bribes (fees from Uniswap) via MultiRewardsDepot contract */
         if (!hermesGaugeBoost.isUserGauge(tokenOwner, address(gauge))) {
             _userAttachements[tokenOwner][pool] = tokenId;
             gauge.attachUser(tokenOwner);
@@ -564,11 +579,18 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
         updatePoolMinimumWidth(uniswapV3Pool);
     }
 
+    /* @audit Why is this not access control protected? */
     /* @audit What are the bribes and bribeDepots? This must be connected to the way 
     * Hermes makes money. */
     /// @inheritdoc IUniswapV3Staker
     function updateBribeDepot(IUniswapV3Pool uniswapV3Pool) public {
+        /* @info This is just returning the address of the depot that was deployed during gauge deployment. */ 
+        /* @audit Is it possible to change the depot after deployment? 
+        * It might be possible via FlywheelBribeRewards contract `setRewardsDepot()` */
         address newDepot = address(gauges[uniswapV3Pool].multiRewardsDepot());
+        /* @audit-ok How is the initial value of bribeDepots set? 
+        * The factory calls the updateGauges() which calls updateBribeDepot (this function),
+        * the addr of the deployed depot is assigned to bribeDepots. */
         if (newDepot != bribeDepots[uniswapV3Pool]) {
             bribeDepots[uniswapV3Pool] = newDepot;
 

@@ -79,6 +79,8 @@ abstract contract BaseV2Gauge is Ownable, IBaseV2Gauge {
 
         epoch = (block.timestamp / WEEK) * WEEK;
 
+        /* @audit Given that this is constructed by the UniV3Gauge, 
+        * the addr passed is UniV3Gauge? */
         multiRewardsDepot = new MultiRewardsDepot(address(this));
     }
 

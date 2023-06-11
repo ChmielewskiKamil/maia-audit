@@ -12,7 +12,7 @@ import {FlywheelGaugeRewards} from "@rewards/rewards/FlywheelGaugeRewards.sol";
 
 import {IBaseV2Minter} from "../interfaces/IBaseV2Minter.sol";
 
-/* @audit 
+/* @info
 * The reward stream in the gauges come from the BaseV2Minter, this contract is responsible for
 * creating the HERMES reward token. */
 /* @audit What is the B(3, 3) system? */
@@ -191,6 +191,7 @@ contract BaseV2Minter is Ownable, IBaseV2Minter {
 
             emit Mint(msg.sender, newWeeklyEmission, _circulatingSupply, _growth, share);
 
+            /* @audit Is it really the case that it won't enter? Possible re-entrancy. */
             /// @dev queue rewards for the cycle, anyone can call if fails
             ///      queueRewardsForCycle will call this function but won't enter
             ///      here because activePeriod was updated

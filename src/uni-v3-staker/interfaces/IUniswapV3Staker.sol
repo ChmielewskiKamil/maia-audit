@@ -204,6 +204,8 @@ interface IUniswapV3Staker is IERC721Receiver {
     /// @return reward The amount of reward tokens claimed
     function claimReward(address to, uint256 amountRequested) external returns (uint256 reward);
 
+    /* @audit-issue Incorrect notice comment, it transfers all rewards. */
+    /* @audit-issue Add information for users that unstakeToken should be called before this function. */
     /// @notice Transfers `amountRequested` of accrued `rewardToken` rewards from the contract to the recipient `to`
     /// @param to The address where claimed rewards will be sent to
     /// @return reward The amount of reward tokens claimed

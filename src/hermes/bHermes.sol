@@ -141,7 +141,6 @@ contract bHermes is UtilityManager, ERC4626DepositOnly {
     //////////////////////////////////////////////////////////////*/
 
     /* @audit 
-    * - no access control? 
     * - what calls to this func? 
     * - Can this be called multiple times? */ 
     /**

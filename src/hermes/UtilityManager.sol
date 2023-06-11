@@ -52,6 +52,7 @@ abstract contract UtilityManager is IUtilityManager {
                         UTILITY TOKENS LOGIC
     //////////////////////////////////////////////////////////////*/
 
+    /* @audit Why would someone forfeit utilities? */
     /// @inheritdoc IUtilityManager
     function forfeitMultiple(uint256 amount) public virtual {
         forfeitWeight(amount);

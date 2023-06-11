@@ -71,11 +71,11 @@ contract FlywheelGaugeRewards is Ownable, IFlywheelGaugeRewards {
 
     /// @inheritdoc IFlywheelGaugeRewards
     function queueRewardsForCycle() external returns (uint256 totalQueuedForCycle) {
-        /* @audit-issue Typo in the comment, probably bot race caught this.
-        * Nope, valid issue. Not found by the bot. */
+        /* @audit-issue Typo in the comment -> Not found by the bot. */
         /// @dev Update minter cycle and queue rewars if needed.
         /// This will make this call fail if it is a new epoch, because the minter calls this function, the first call would fail with "CycleError()".
         /// Should be called through Minter to kickoff new epoch.
+        /* @audit-issue Check if this is not a re-entrancy issue */
         minter.updatePeriod();
 
         // next cycle is always the next even divisor of the cycle length above current block timestamp.

@@ -14,6 +14,12 @@ interface IRewardsStream {
     function getRewards() external returns (uint256);
 }
 
+/* @audit I don't understand the last part. 
+    - What does it mean that prior rewards are cached in the previous cycle? 
+    - What does it mean that Core requests accrued rewards? 
+    - What does it mean that rewards are distributed proportionaly to the remaining time,
+      aren't they waiting for the next cycle to begin and be transferred later? 
+*/
 /**
  * @title Flywheel Gauge Reward Stream
  *  @author Maia DAO (https://github.com/Maia-DAO)
@@ -78,6 +84,9 @@ interface IFlywheelGaugeRewards {
                         FLYWHEEL CORE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
+    /* @audit How can it transfer something to an abstract contract (Core)? 
+    * There is actually a `FlywheelCore` contract which inherits from
+    * an abstract contract with the same name `FlywheelCore` */
     /**
      * @notice calculate and transfer accrued rewards to flywheel core
      *  @dev msg.sender is the gauge to accrue rewards for

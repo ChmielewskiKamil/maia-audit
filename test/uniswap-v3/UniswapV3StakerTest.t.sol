@@ -184,6 +184,7 @@ contract UniswapV3StakerTest is DSTestPlus, IERC721Receiver {
     //                      TESTS DEPOSIT
     //////////////////////////////////////////////////////////////////
 
+    /* @audit Rewrite staker tests in fork environment as a last resort */
     // Test minting a position and transferring it to Uniswap V3 Staker, before creating a gauge
     function testFailNoGauge() public {
         // Create a Uniswap V3 pool
