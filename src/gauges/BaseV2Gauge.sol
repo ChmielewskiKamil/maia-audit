@@ -93,6 +93,8 @@ abstract contract BaseV2Gauge is Ownable, IBaseV2Gauge {
                         GAUGE ACTIONS    
     //////////////////////////////////////////////////////////////*/
 
+    /* @audit Who is supposed to call this function? 
+    * There is a function with the same name in GaugeManager which calls newEpoch on every gauge */
     /// @inheritdoc IBaseV2Gauge
     function newEpoch() external {
         uint256 _newEpoch = (block.timestamp / WEEK) * WEEK;

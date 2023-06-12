@@ -24,6 +24,7 @@ abstract contract ERC20Boost is ERC20, Ownable, IERC20Boost {
                             GAUGE STATE
     //////////////////////////////////////////////////////////////*/
 
+    /* @info User => Gauge => GaugeState */
     /// @inheritdoc IERC20Boost
     mapping(address => mapping(address => GaugeState)) public override getUserGaugeBoost;
 
@@ -157,22 +158,27 @@ abstract contract ERC20Boost is ERC20, Ownable, IERC20Boost {
         uint128 userGaugeBoost = balanceOf[user].toUint128();
 
         /* @audit-ok This is comparing the uint256 to uint128, how does that work?
+        * 
         * This case will only be dangerous if uint256 getUserBoost > uint128.max - THATS NOT CORRECt
         * This is safe as tested */
-        /* @audit-ok What this does?
-        * If the user allocated boost is smaller than his current (new) bHermes balance, 
-        * update available boost */
+        /* @audit Given that this is called during staking the liquidity token, 
+        * what if the user does not have the bHermes yet? 
+        * 
+        * getUserBoost will be 0, userGaugeBoost will also be 0, this won't be hit
+        *
+        * It's okay, the next lines will simply attach 0 to userGaugeBoost in the gaugeState,
+        * User will earn HERMES the normal way and then he will boost his gauge. */
         if (getUserBoost[user] < userGaugeBoost) {
             getUserBoost[user] = userGaugeBoost;
             emit UpdateUserBoost(user, userGaugeBoost);
         }
 
-        /* @audit I don't understand it. Is it assigning the same thing as above the second time?
+        /* @audit-ok I don't understand it. Is it assigning the same thing as above the second time?
         * This is assigning to a different variable getUserBoost != getUserGaugeBoost
         * The getUserGaugeBoost returns the allocation for the specific gauge, while getUserBoost 
         * returns the allocation for all gauges. 
-        *
         * This function efectively attaches all of the user available boost to a gauge */
+        /* @info Given that user had 0 bHermesBoost during the call, his userGaugeBoost will be 0 */
         getUserGaugeBoost[user][msg.sender] =
             GaugeState({userGaugeBoost: userGaugeBoost, totalGaugeBoost: totalSupply.toUint128()});
 

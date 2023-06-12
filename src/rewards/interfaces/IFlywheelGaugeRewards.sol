@@ -77,6 +77,9 @@ interface IFlywheelGaugeRewards {
      */
     function queueRewardsForCycle() external returns (uint256 totalQueuedForCycle);
 
+    /* @audit-issue 
+    * - Missing natspec for parameter
+    * - The notice is the same as for the function above */
     /// @notice Iterates over all live gauges and queues up the rewards for the cycle
     function queueRewardsForCyclePaginated(uint256 numRewards) external;
 

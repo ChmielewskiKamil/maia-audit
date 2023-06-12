@@ -16,13 +16,15 @@ contract MultiRewardsDepot is Ownable, RewardsDepot, IMultiRewardsDepot {
     /// @dev _assets[rewardsContracts] => asset (reward Token)
     mapping(address => address) private _assets;
 
+    /* @audit How is this set, who is the rewards contract? */
     /// @notice _isRewardsContracts[rewardsContracts] => true/false
     mapping(address => bool) private _isRewardsContract;
 
     /// @notice _isAsset[asset] => true/false
     mapping(address => bool) private _isAsset;
 
-    /* @audit This is the UniV3Gauge? */
+    /* @audit-ok This is the UniV3Gauge?
+    * Yes, MultiRewardsDepot is deployed during the gauge deployment.*/
     /**
      * @notice MultiRewardsDepot constructor
      *  @param _owner owner of the contract
@@ -35,6 +37,7 @@ contract MultiRewardsDepot is Ownable, RewardsDepot, IMultiRewardsDepot {
                         GET REWARDS LOGIC
     //////////////////////////////////////////////////////////////*/
 
+    /* @audit Who is supposed to be calling this function? */
     /// @inheritdoc IMultiRewardsDepot
     function getRewards() external override(RewardsDepot, IMultiRewardsDepot) onlyFlywheelRewards returns (uint256) {
         return transferRewards(_assets[msg.sender], msg.sender);

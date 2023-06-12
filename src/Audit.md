@@ -35,7 +35,7 @@
 
 ### Gauges
  159 src/gauges/BaseV2Gauge.sol ✅
-  77 src/gauges/UniswapV3Gauge.sol
+  77 src/gauges/UniswapV3Gauge.sol ✅
  166 src/gauges/factories/BaseV2GaugeFactory.sol
  164 src/gauges/factories/BaseV2GaugeManager.sol
  111 src/gauges/factories/BribesFactory.sol
@@ -54,8 +54,8 @@
   47 src/rewards/base/BaseFlywheelRewards.sol
  212 src/rewards/base/FlywheelCore.sol
   63 src/rewards/booster/FlywheelBoosterGaugeWeight.sol
-  76 src/rewards/depots/MultiRewardsDepot.sol
-  25 src/rewards/depots/RewardsDepot.sol
+  76 src/rewards/depots/MultiRewardsDepot.sol ✅
+  25 src/rewards/depots/RewardsDepot.sol ✅
   44 src/rewards/depots/SingleRewardsDepot.sol
   43 src/rewards/interfaces/IFlywheelAcummulatedRewards.sol
   36 src/rewards/interfaces/IFlywheelBooster.sol
@@ -68,7 +68,7 @@
   59 src/rewards/interfaces/IRewardsDepot.sol
   61 src/rewards/rewards/FlywheelAcummulatedRewards.sol
   43 src/rewards/rewards/FlywheelBribeRewards.sol
- 236 src/rewards/rewards/FlywheelGaugeRewards.sol
+ 236 src/rewards/rewards/FlywheelGaugeRewards.sol ✅
   36 src/rewards/rewards/FlywheelInstantRewards.sol
 1529 total
 

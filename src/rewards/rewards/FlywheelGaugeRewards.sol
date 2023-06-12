@@ -72,10 +72,11 @@ contract FlywheelGaugeRewards is Ownable, IFlywheelGaugeRewards {
     /// @inheritdoc IFlywheelGaugeRewards
     function queueRewardsForCycle() external returns (uint256 totalQueuedForCycle) {
         /* @audit-issue Typo in the comment -> Not found by the bot. */
+        /* @audit-issue Check if this is not a re-entrancy issue */
+        /* @audit-issue updatePeriod returns uint256, why is the return value not checked */
         /// @dev Update minter cycle and queue rewars if needed.
         /// This will make this call fail if it is a new epoch, because the minter calls this function, the first call would fail with "CycleError()".
         /// Should be called through Minter to kickoff new epoch.
-        /* @audit-issue Check if this is not a re-entrancy issue */
         minter.updatePeriod();
 
         // next cycle is always the next even divisor of the cycle length above current block timestamp.
@@ -89,9 +90,16 @@ contract FlywheelGaugeRewards is Ownable, IFlywheelGaugeRewards {
 
         // queue the rewards stream and sanity check the tokens were received
         uint256 balanceBefore = rewardToken.balanceOf(address(this));
+
+        /* @audit Where is the transfer of HERMES to gauge?*/
+        /* @info This call triggers the transfer of HERMES tokens from BaseV2Minter to this contract */
         totalQueuedForCycle = minter.getRewards();
+
+        /* @audit-ok Isn't totalQueuedForCycle always 0 at this point? It wasn't modified before 
+        * NO, it is modified above. GetRewards() returns newWeeklyEmission */
         require(rewardToken.balanceOf(address(this)) - balanceBefore >= totalQueuedForCycle);
 
+        /* @audit-ok Shouldn't this line be moved above the require above? */
         /* @audit How are nextCycleQueuedRewards set? */
         // include uncompleted cycle
         totalQueuedForCycle += nextCycleQueuedRewards;
@@ -107,6 +115,9 @@ contract FlywheelGaugeRewards is Ownable, IFlywheelGaugeRewards {
         emit CycleStart(currentCycle, totalQueuedForCycle);
     }
 
+    /* @audit Whats the purpose of Paginated version? 
+    * As opposed to the non paginated version, this function is not used anywhere in the code, just in the tests.
+    * It's behaviour should be exactly the same as the other function. */
     /// @inheritdoc IFlywheelGaugeRewards
     function queueRewardsForCyclePaginated(uint256 numRewards) external {
         /// @dev Update minter cycle and queue rewars if needed.
@@ -157,12 +168,19 @@ contract FlywheelGaugeRewards is Ownable, IFlywheelGaugeRewards {
         address[] memory gauges = gaugeToken.gauges(offset, numRewards);
 
         _queueRewards(gauges, currentCycle, lastCycle, queued);
+        /* @audit This function differs from the one above: 
+        * - It does not set nextCycleQueuedRewards to 0 after the _queueRewards.
+        * It does that before. 
+        * - It also uses queued instead of totalQueuedForCycle */
     }
 
     /*//////////////////////////////////////////////////////////////
                         FLYWHEEL CORE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
+    /* @info This is the core function of this contract, it reads the gauge state for the previous cycle 
+    * and determines how many reward tokens it will get in the current cycle. */
+    /* @audit Is the next cycle the current cycle then?*/
     /**
      * @notice Queues the rewards for the next cycle for each given gauge.
      * @param gauges array of gauges addresses to queue rewards for.
@@ -182,6 +200,7 @@ contract FlywheelGaugeRewards is Ownable, IFlywheelGaugeRewards {
 
             QueuedRewards memory queuedRewards = gaugeQueuedRewards[gauge];
 
+            /* @audit How do you start the cycle queue? */
             // Cycle queue already started
             require(queuedRewards.storedCycle < currentCycle);
             /* @audit If this assertion could be broken, the rewards withdrawal would be bricked 
@@ -191,7 +210,9 @@ contract FlywheelGaugeRewards is Ownable, IFlywheelGaugeRewards {
             * How is the lastCycle set? */
             assert(queuedRewards.storedCycle == 0 || queuedRewards.storedCycle >= lastCycle);
 
+            /* @audit Is this correct? What is the stored cycle? Should the last cycle be given cycleRewards? */
             uint112 completedRewards = queuedRewards.storedCycle == lastCycle ? queuedRewards.cycleRewards : 0;
+            /* @info This line handles how much will be alocated to each gauge */
             uint256 nextRewards = gaugeToken.calculateGaugeAllocation(address(gauge), totalQueuedForCycle);
             require(nextRewards <= type(uint112).max); // safe cast
 
@@ -205,6 +226,14 @@ contract FlywheelGaugeRewards is Ownable, IFlywheelGaugeRewards {
         }
     }
 
+    /* @audit Is Gauge supposed to call this function? */
+    /* @audit-issue There seem to be no access control on this function 
+    * The only way to follow this up would be if you could modify the gaugeQueuedRewards for arbitrary sender 
+    * 
+    * What writes to `gaugeQueuedRewards`? 
+    * - This function writes to `gaugeQueuedRewards`
+    * - The `_queueRewards` also writes to it 
+    * how is the first assignment performed then? */
     /// @inheritdoc IFlywheelGaugeRewards
     function getAccruedRewards() external returns (uint256 accruedRewards) {
         /// @dev Update minter cycle and queue rewars if needed.
@@ -213,8 +242,14 @@ contract FlywheelGaugeRewards is Ownable, IFlywheelGaugeRewards {
         QueuedRewards memory queuedRewards = gaugeQueuedRewards[ERC20(msg.sender)];
 
         uint32 cycle = gaugeCycle;
+        /* @audit-followup If msg.sender would be some arbitrary contract, storedCycle would be 0,
+        * meaning that `incompleteCycle` would be false */
         bool incompleteCycle = queuedRewards.storedCycle > cycle;
 
+        /* @audit-followup 
+        * - The 1st part would be true 
+        * - The 2nd part would be true as well bcs cycleRewards would be 0 
+        * Meaning it would return 0 for accrued rewards */
         // no rewards
         if (queuedRewards.priorCycleRewards == 0 && (queuedRewards.cycleRewards == 0 || incompleteCycle)) {
             return 0;
