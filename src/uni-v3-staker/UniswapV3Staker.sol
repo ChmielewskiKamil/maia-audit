@@ -22,6 +22,9 @@ import {RewardMath} from "./libraries/RewardMath.sol";
 
 import {IUniswapV3Staker} from "./interfaces/IUniswapV3Staker.sol";
 
+/* @audit Make sure that there is no way to cheat the minimum range (width?) - the ticks 
+* According to the docs https://v2-docs.maiadao.io/protocols/Hermes/overview/gauges/uni-v3
+* Users with concentrated liquidty would be able to gain most of the emissions. */
 /// @title Uniswap V3 Staker Interface with bHermes Boost.
 contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
     using SafeTransferLib for address;

@@ -13,20 +13,22 @@ import {IFlywheelBooster} from "./interfaces/IFlywheelBooster.sol";
 import {IFlywheelAcummulatedRewards} from "./interfaces/IFlywheelAcummulatedRewards.sol";
 import {IFlywheelRewards} from "./interfaces/IFlywheelRewards.sol";
 
+/* @audit What is the accrue hook? */
 /**
  * @title Flywheel Core Incentives Manager
- *  @notice Flywheel is a general framework for managing token incentives.
- *          It takes reward streams to various *strategies* such as staking LP tokens and divides them among *users* of those strategies.
+ * @notice Flywheel is a general framework for managing token incentives.
+ * It takes reward streams to various *strategies* such as staking LP tokens and divides them among *users* of those strategies.
  *
- *          The Core contract maintains three important pieces of state:
- * the rewards index which determines how many rewards are owed per token per strategy. User indexes track how far behind the strategy they are to lazily calculate all catch-up rewards.
+ * The Core contract maintains three important pieces of state:
+ * the rewards index which determines how many rewards are owed per token per strategy. 
+ * User indexes track how far behind the strategy they are to lazily calculate all catch-up rewards.
  * the accrued (unclaimed) rewards per user.
  * references to the booster and rewards module described below.
  *
- *          Core does not manage any tokens directly. The rewards module maintains token balances, and approves core to pull transfer them to users when they claim.
+ * Core does not manage any tokens directly. The rewards module maintains token balances, and approves core to pull transfer them to users when they claim.
  *
- *          SECURITY NOTE: For maximum accuracy and to avoid exploits, rewards accrual should be notified atomically through the accrue hook.
- *          Accrue should be called any time tokens are transferred, minted, or burned.
+ * SECURITY NOTE: For maximum accuracy and to avoid exploits, rewards accrual should be notified atomically through the accrue hook.
+ * Accrue should be called any time tokens are transferred, minted, or burned.
  */
 contract FlywheelCore is Core {
     constructor(
@@ -36,6 +38,8 @@ contract FlywheelCore is Core {
         address _owner
     ) Core(_rewardToken, address(_flywheelRewards), _flywheelBooster, _owner) {}
 
+    /* @audit How is this called? 
+    * This is called in the accrueStrategy() on FlywheelCore.sol */
     function _getAccruedRewards(ERC20 strategy) internal override returns (uint256) {
         return IFlywheelAcummulatedRewards(flywheelRewards).getAccruedRewards(strategy);
     }

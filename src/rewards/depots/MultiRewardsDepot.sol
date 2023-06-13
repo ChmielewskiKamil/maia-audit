@@ -37,7 +37,8 @@ contract MultiRewardsDepot is Ownable, RewardsDepot, IMultiRewardsDepot {
                         GET REWARDS LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    /* @audit Who is supposed to be calling this function? */
+    /* @audit Who is supposed to be calling this function? 
+    * FlywheelBribeRewards? */
     /// @inheritdoc IMultiRewardsDepot
     function getRewards() external override(RewardsDepot, IMultiRewardsDepot) onlyFlywheelRewards returns (uint256) {
         return transferRewards(_assets[msg.sender], msg.sender);

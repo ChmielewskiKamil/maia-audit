@@ -130,6 +130,7 @@ abstract contract BaseV2Gauge is Ownable, IBaseV2Gauge {
         /* @audit How does one add _bribeFlywheels? */
         FlywheelCore[] storage _bribeFlywheels = bribeFlywheels;
         uint256 length = _bribeFlywheels.length;
+        /* @audit Does this function accrue bribes from all of the flywheels? Why? Isn't there just one flywheel? */
         for (uint256 i = 0; i < length;) {
             if (isActive[_bribeFlywheels[i]]) _bribeFlywheels[i].accrue(ERC20(address(this)), user);
 

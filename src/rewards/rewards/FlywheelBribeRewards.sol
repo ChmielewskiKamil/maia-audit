@@ -28,8 +28,10 @@ contract FlywheelBribeRewards is FlywheelAcummulatedRewards, IFlywheelBribeRewar
         FlywheelAcummulatedRewards(_flywheel, _rewardsCycleLength)
     {}
 
+    /* @audit This is the hook that was mentioned somwhere */
     /// @notice calculate and transfer accrued rewards to flywheel core
     function getNextCycleRewards(ERC20 strategy) internal override returns (uint256) {
+        /* @audit As my comment from RewardsDepot: This is probably the MultiRewardsDepot */
         return rewardsDepots[strategy].getRewards();
     }
 

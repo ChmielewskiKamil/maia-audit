@@ -11,6 +11,8 @@ import {BaseFlywheelRewards, FlywheelCore} from "../base/BaseFlywheelRewards.sol
 
 import {IFlywheelAcummulatedRewards} from "../interfaces/IFlywheelAcummulatedRewards.sol";
 
+/* @info This contract has approved the FlywheelCore max.uint256 of rewards token 
+* (approval in base flywheel rewards) */
 ///  @title Flywheel Accumulated Rewards.
 abstract contract FlywheelAcummulatedRewards is BaseFlywheelRewards, IFlywheelAcummulatedRewards {
     using SafeCastLib for uint256;
@@ -38,10 +40,14 @@ abstract contract FlywheelAcummulatedRewards is BaseFlywheelRewards, IFlywheelAc
                         FLYWHEEL CORE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
+    /* @audit This function has the same name as the one on the FlywheelGaugeRewards contract that is called by UniV3Gauge 
+    *
+    * This function is called from the FlywheelCoreStrategy contract */
     /// @inheritdoc IFlywheelAcummulatedRewards
     function getAccruedRewards(ERC20 strategy) external override onlyFlywheel returns (uint256 amount) {
         uint32 timestamp = block.timestamp.toUint32();
 
+        /* @audit This is comparing uint32 to uint256 */
         // if cycle has ended, reset cycle and transfer all available
         if (timestamp >= endCycle) {
             amount = getNextCycleRewards(strategy);

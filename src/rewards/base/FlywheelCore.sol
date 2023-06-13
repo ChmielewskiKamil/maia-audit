@@ -90,6 +90,7 @@ abstract contract FlywheelCore is Ownable, IFlywheelCore {
         return (accrueUser(strategy, user, index), accrueUser(strategy, secondUser, index));
     }
 
+    /* @audit What if you call this for someone else? */
     /// @inheritdoc IFlywheelCore
     function claimRewards(address user) external {
         uint256 accrued = rewardsAccrued[user];
@@ -153,6 +154,8 @@ abstract contract FlywheelCore is Ownable, IFlywheelCore {
     /// @inheritdoc IFlywheelCore
     mapping(ERC20 => mapping(address => uint256)) public userIndex;
 
+    /* @audit Where is this called? 
+    * This is called in the accrue() public function in this contract (FlywheelCore) */
     /// @notice accumulate global rewards on a strategy
     function accrueStrategy(ERC20 strategy, uint256 state) private returns (uint256 rewardsIndex) {
         // calculate accrued rewards through rewards module

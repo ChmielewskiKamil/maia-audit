@@ -6,6 +6,7 @@ import {ERC20} from "solmate/tokens/ERC20.sol";
 
 import {ERC20Gauges} from "@ERC20/ERC20Gauges.sol";
 
+/* @audit What are the parts that are imported from FlywheelCore? */
 import {FlywheelCore} from "../base/FlywheelCore.sol";
 
 /// @notice a contract that streams reward tokens to the FlywheelRewards module

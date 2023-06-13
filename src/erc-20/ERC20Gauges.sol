@@ -204,7 +204,8 @@ abstract contract ERC20Gauges is ERC20MultiVotes, ReentrancyGuard, IERC20Gauges 
     function incrementGauge(address gauge, uint112 weight) external nonReentrant returns (uint112 newUserWeight) {
         uint32 currentCycle = _getGaugeCycleEnd();
         _incrementGaugeWeight(msg.sender, gauge, weight, currentCycle);
-        /* @audit If user has no available weight, the call will revert below */
+        /* @audit If user has no available weight, the call will revert below 
+        * I don't know if the above is correct. How does it revert? */
         return _incrementUserAndGlobalWeights(msg.sender, weight, currentCycle);
     }
 
