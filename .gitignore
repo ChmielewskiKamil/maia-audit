@@ -110,3 +110,10 @@ venv
 # Foundry
 cache/
 out/
+
+!/broadcast
+/broadcast/*/31337/
+/broadcast/*/1/
+/broadcast/*/56/
+/broadcast/*/42161/
+/broadcast/**/dry-run/
