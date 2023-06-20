@@ -103,7 +103,8 @@ contract BaseV2Minter is Ownable, IBaseV2Minter {
         dao = _dao;
     }
 
-    /* @audit-issue What if the dao share is set, but the dao address is set to addr(0)? */
+    /* @audit-ok What if the dao share is set, but the dao address is set to addr(0)?
+    * The share is set, but it won't be transferred because of 0 addr checks. */
     /// @inheritdoc IBaseV2Minter
     function setDaoShare(uint256 _daoShare) external onlyOwner {
         if (_daoShare > max_dao_share) revert DaoShareTooHigh();
@@ -175,6 +176,7 @@ contract BaseV2Minter is Ownable, IBaseV2Minter {
 
             uint256 _growth = calculateGrowth(newWeeklyEmission);
             uint256 _required = _growth + newWeeklyEmission;
+            /* @audit Why are they multiplying the daoShare * required? */
             /// @dev share of newWeeklyEmission emissions sent to DAO.
             uint256 share = (_required * daoShare) / base;
             _required += share;

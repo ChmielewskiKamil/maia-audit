@@ -75,8 +75,13 @@ contract BribesFactory is Ownable, IBribesFactory {
         flywheelTokens[bribeToken].addStrategyForRewards(ERC20(gauge));
     }
 
+    /* @audit Anyone can create bribe flywheel, what can you achieve with that? 
+    * From my current understanding, anyone can create a bribe flywheel but only the admin, 
+    * can attach it to the gauge. So the accrueRewards function cannot be DOSed. */
     /// @inheritdoc IBribesFactory
     function createBribeFlywheel(address bribeToken) public {
+        /* @audit-ok How are flywheelTokens set? 
+        * It is set later in this function. */
         if (address(flywheelTokens[bribeToken]) != address(0)) revert BribeFlywheelAlreadyExists();
 
         FlywheelCore flywheel = new FlywheelCore(
@@ -89,6 +94,8 @@ contract BribesFactory is Ownable, IBribesFactory {
         flywheelTokens[bribeToken] = flywheel;
 
         uint256 id = bribeFlywheels.length;
+        /* @audit If bribeFlywheels is iterated in a for loop somewhere you could DOS that. */
+        /* @audit How is that bribeFlywheels different from bribeFlywheels in the BaseV2Gauge? */
         bribeFlywheels.push(flywheel);
         bribeFlywheelIds[flywheel] = id;
         activeBribeFlywheels[flywheel] = true;

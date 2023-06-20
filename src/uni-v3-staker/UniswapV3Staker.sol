@@ -25,6 +25,7 @@ import {IUniswapV3Staker} from "./interfaces/IUniswapV3Staker.sol";
 /* @audit Make sure that there is no way to cheat the minimum range (width?) - the ticks 
 * According to the docs https://v2-docs.maiadao.io/protocols/Hermes/overview/gauges/uni-v3
 * Users with concentrated liquidty would be able to gain most of the emissions. */
+/* @audit Investigate Multicallable */
 /// @title Uniswap V3 Staker Interface with bHermes Boost.
 contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
     using SafeTransferLib for address;
@@ -171,7 +172,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
         emit IncentiveCreated(pool, startTime, reward);
     }
 
-    /* @audit How do you get an incentive key?
+    /* @audit-ok How do you get an incentive key?
     * This is not a secret info, it's just the pool and incentive program start time.
     * Anyone can create such program, it requires sending some HERMES tokens as rewards
     * for participants. */
@@ -244,7 +245,9 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
         override
         returns (bytes4)
     {
-        /* @audit Why is this assigning it to a local variable instead of using address(nonfungiblePositionManager)? */
+        /* @audit-issue GAS? Why is this assigning it to a local variable instead of using address(nonfungiblePositionManager)? 
+        * Probably a gas optimization to reduce storage loads 
+        * Why using it later directly then? */
         INonfungiblePositionManager _nonfungiblePositionManager = nonfungiblePositionManager;
         if (msg.sender != address(_nonfungiblePositionManager)) revert TokenNotUniswapV3NFT();
 
@@ -253,6 +256,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
             NFTPositionInfo.getPositionInfo(factory, nonfungiblePositionManager, tokenId);
 
         deposits[tokenId] = Deposit({owner: from, tickLower: tickLower, tickUpper: tickUpper, stakedTimestamp: 0});
+        /* @audit Why is this event emitted before the _stakeToken? */
         emit DepositTransferred(tokenId, address(0), from);
 
         // stake the token in the current incentive
@@ -371,6 +375,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
 
     function restakeToken(uint256 tokenId) external {
         IncentiveKey storage incentiveId = stakedIncentiveKey[tokenId];
+        /* @audit-issue Shouldn't the flag isNotRestake be false here? */
         if (incentiveId.startTime != 0) _unstakeToken(incentiveId, tokenId, true);
 
         (IUniswapV3Pool pool, int24 tickLower, int24 tickUpper, uint128 liquidity) =
@@ -405,6 +410,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
 
         address owner = deposit.owner;
 
+        /* @audit-issue Is it really possible for anyone to restake? The isNotRestake is always hardcoded as true. */
         /* @audit-issue Is this check correct? Timestamp < endTime */
         /* @audit Check default value of isNotRestake && does isNotRestake is true when is not restaken? */
         // anyone can call restakeToken if the block time is after the end time of the incentive
@@ -567,6 +573,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable {
     /* @audit-issue Why is this not access control protected? */
     /// @inheritdoc IUniswapV3Staker
     function updateGauges(IUniswapV3Pool uniswapV3Pool) external {
+        /* @audit-issue001 Why is the address of univ3Pool passed as strategyGauges? */
         address uniswapV3Gauge = address(uniswapV3GaugeFactory.strategyGauges(address(uniswapV3Pool)));
 
         if (uniswapV3Gauge == address(0)) revert InvalidGauge();

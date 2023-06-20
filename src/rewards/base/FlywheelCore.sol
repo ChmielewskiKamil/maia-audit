@@ -84,6 +84,9 @@ abstract contract FlywheelCore is Ownable, IFlywheelCore {
     function accrue(ERC20 strategy, address user, address secondUser) public returns (uint256, uint256) {
         uint256 index = strategyIndex[strategy];
 
+        /* @audit-ok This will return early if it is some random strategy. 
+        * How does legit strategies get their index?
+        * Admin sets this via addStrategyForRewards */
         if (index == 0) return (0, 0);
 
         index = accrueStrategy(strategy, index);
@@ -154,7 +157,7 @@ abstract contract FlywheelCore is Ownable, IFlywheelCore {
     /// @inheritdoc IFlywheelCore
     mapping(ERC20 => mapping(address => uint256)) public userIndex;
 
-    /* @audit Where is this called? 
+    /* @audit-ok Where is this called? 
     * This is called in the accrue() public function in this contract (FlywheelCore) */
     /// @notice accumulate global rewards on a strategy
     function accrueStrategy(ERC20 strategy, uint256 state) private returns (uint256 rewardsIndex) {
@@ -171,6 +174,8 @@ abstract contract FlywheelCore is Ownable, IFlywheelCore {
             uint224 deltaIndex;
 
             if (supplyTokens != 0) {
+                /* @audit Why are they casting it to uint224? 
+                * In the next line they are adding uint256 += uint224 */
                 deltaIndex = ((strategyRewardsAccrued * ONE) / supplyTokens).toUint224();
             }
 
@@ -200,6 +205,7 @@ abstract contract FlywheelCore is Ownable, IFlywheelCore {
             ? flywheelBooster.boostedBalanceOf(strategy, user)
             : strategy.balanceOf(user);
 
+        /* @audit Why is it dividing by ONE? */
         // accumulate rewards by multiplying user tokens by rewardsPerToken index and adding on unclaimed
         uint256 supplierDelta = (supplierTokens * deltaIndex) / ONE;
         uint256 supplierAccrued = rewardsAccrued[user] + supplierDelta;

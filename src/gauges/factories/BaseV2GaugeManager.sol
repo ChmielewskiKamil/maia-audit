@@ -34,6 +34,7 @@ contract BaseV2GaugeManager is Ownable, IBaseV2GaugeManager {
     /// @inheritdoc IBaseV2GaugeManager
     mapping(BaseV2GaugeFactory => bool) public activeGaugeFactories;
 
+    /* @audit What does it mean that the admin can transfer ownership of Weight and Boost? */
     /**
      * @notice Initializes Base V2 Gauge Factory Manager contract.
      * @param _bHermes bHermes contract
@@ -56,6 +57,7 @@ contract BaseV2GaugeManager is Ownable, IBaseV2GaugeManager {
                             EPOCH LOGIC
     //////////////////////////////////////////////////////////////*/
 
+    /* @info This functio triggers the new Epoch in the whole protocol */
     /// @inheritdoc IBaseV2GaugeManager
     function newEpoch() external {
         BaseV2GaugeFactory[] storage _gaugeFactories = gaugeFactories;
@@ -119,9 +121,15 @@ contract BaseV2GaugeManager is Ownable, IBaseV2GaugeManager {
 
     /// @inheritdoc IBaseV2GaugeManager
     function removeGaugeFactory(BaseV2GaugeFactory gaugeFactory) external onlyOwner {
+        /* @audit-ok The second part of this check is weird. 
+        * isn't the gaugeFactoryIds[gaugeFactory] going to return the uint256 id? 
+        * It's okay the gaugeFactoryIds mapping keeps track of the elemtns in the gaugeFactories array. 
+        * The id returned by the gaugeFactoryIds will correspond to the gaugeFactoreis elements. */
         if (!activeGaugeFactories[gaugeFactory] || gaugeFactories[gaugeFactoryIds[gaugeFactory]] != gaugeFactory) {
             revert NotActiveGaugeFactory();
         }
+        /* @audit-ok Are these deleting any complex data structures? 
+        * It's correctly implemented */
         delete gaugeFactories[gaugeFactoryIds[gaugeFactory]];
         delete gaugeFactoryIds[gaugeFactory];
         delete activeGaugeFactories[gaugeFactory];

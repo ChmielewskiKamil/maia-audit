@@ -79,8 +79,8 @@ abstract contract BaseV2Gauge is Ownable, IBaseV2Gauge {
 
         epoch = (block.timestamp / WEEK) * WEEK;
 
-        /* @audit Given that this is constructed by the UniV3Gauge, 
-        * the addr passed is UniV3Gauge? */
+        /* @audit-ok Given that this is constructed by the UniV3Gauge, 
+        * the addr passed is UniV3Gauge? YES */
         multiRewardsDepot = new MultiRewardsDepot(address(this));
     }
 
@@ -111,9 +111,13 @@ abstract contract BaseV2Gauge is Ownable, IBaseV2Gauge {
         }
     }
 
+    /* @audit-ok - Investigate if by distributing to the pool something will be broken
+    * Not an issue because they override with hardcoded univ3staker in univ3gauge */
     /// @notice Distributes weekly emissions to the strategy.
     function distribute(uint256 amount) internal virtual;
 
+    /* @audit-ok - Who is supposed to call these two functions? 
+    * It's called when Staking Tokens via UniV3Staker */
     /// @inheritdoc IBaseV2Gauge
     function attachUser(address user) external onlyStrategy {
         hermesGaugeBoost.attach(user);
@@ -127,10 +131,12 @@ abstract contract BaseV2Gauge is Ownable, IBaseV2Gauge {
     /* @audit Do users receive bribes? And the strategy receives boosts? */
     /// @inheritdoc IBaseV2Gauge
     function accrueBribes(address user) external {
-        /* @audit How does one add _bribeFlywheels? */
+        /* @audit-ok How does one add _bribeFlywheels?
+        * It is added in the BribesFactory. */
         FlywheelCore[] storage _bribeFlywheels = bribeFlywheels;
         uint256 length = _bribeFlywheels.length;
         /* @audit Does this function accrue bribes from all of the flywheels? Why? Isn't there just one flywheel? */
+        /* @audit Can this be DOSed?*/
         for (uint256 i = 0; i < length;) {
             if (isActive[_bribeFlywheels[i]]) _bribeFlywheels[i].accrue(ERC20(address(this)), user);
 
@@ -144,6 +150,7 @@ abstract contract BaseV2Gauge is Ownable, IBaseV2Gauge {
                             ADMIN ACTIONS    
     //////////////////////////////////////////////////////////////*/
 
+    /* @audit How is that function different from the one in BribesFactory? */
     /// @inheritdoc IBaseV2Gauge
     function addBribeFlywheel(FlywheelCore bribeFlywheel) external onlyOwner {
         /// @dev Can't add existing flywheel (active or not)

@@ -8,6 +8,7 @@ import {bHermesGauges} from "@hermes/tokens/bHermesGauges.sol";
 
 import {IFlywheelBooster} from "../interfaces/IFlywheelBooster.sol";
 
+/* @audit How is that SECURITY NOTE acomplished in code? */
 /**
  * @title Balance Booster Module for Flywheel
  *  @notice Flywheel is a general framework for managing token incentives.

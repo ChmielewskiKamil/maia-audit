@@ -39,7 +39,7 @@ contract FlywheelCore is Core {
     ) Core(_rewardToken, address(_flywheelRewards), _flywheelBooster, _owner) {}
 
     /* @audit How is this called? 
-    * This is called in the accrueStrategy() on FlywheelCore.sol */
+    * This is called in the accrueStrategy() on FlywheelCore.sol (So this contract)*/
     function _getAccruedRewards(ERC20 strategy) internal override returns (uint256) {
         return IFlywheelAcummulatedRewards(flywheelRewards).getAccruedRewards(strategy);
     }

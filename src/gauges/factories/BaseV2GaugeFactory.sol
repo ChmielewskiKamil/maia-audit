@@ -41,6 +41,7 @@ abstract contract BaseV2GaugeFactory is Ownable, IBaseV2GaugeFactory {
     /// @inheritdoc IBaseV2GaugeFactory
     mapping(address => BaseV2Gauge) public override strategyGauges;
 
+    /* @audit What is the bribes factory? */
     /**
      * @notice Creates a new gauge factory
      * @param _gaugeManager The gauge manager to use

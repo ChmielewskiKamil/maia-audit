@@ -28,15 +28,21 @@ contract FlywheelBribeRewards is FlywheelAcummulatedRewards, IFlywheelBribeRewar
         FlywheelAcummulatedRewards(_flywheel, _rewardsCycleLength)
     {}
 
-    /* @audit This is the hook that was mentioned somwhere */
+    /* @audit-ok This is the hook that was mentioned somwhere.
+    * It is called as a result from FlywheelCore accrueStrategy() */
     /// @notice calculate and transfer accrued rewards to flywheel core
     function getNextCycleRewards(ERC20 strategy) internal override returns (uint256) {
         /* @audit As my comment from RewardsDepot: This is probably the MultiRewardsDepot */
         return rewardsDepots[strategy].getRewards();
     }
 
+    /* @audit-ok Why does anyone can call this? 
+    * This is probably okay because of the admin whitelisting mentioned below */
     /// @inheritdoc IFlywheelBribeRewards
     function setRewardsDepot(RewardsDepot rewardsDepot) external {
+        /* @audit Where is this whitelisting happening?
+        * The admin uses the addStrategyForRewards in FlywheelCore 
+        * If you try to accrue the rewards before that, functions will return early with 0 */
         /// @dev Anyone can call this, whitelisting is handled in FlywheelCore
         rewardsDepots[ERC20(msg.sender)] = rewardsDepot;
 
