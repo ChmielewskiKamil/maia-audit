@@ -506,4 +506,7 @@ contract UniswapV3StakerTest is DSTestPlus, IERC721Receiver {
 
         assertEq(rewardToken.balanceOf(address(baseV2Minter)), 1 ether / 2);
     }
+
+    function testRestake() public {
+    }
 }
