@@ -57,6 +57,9 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
 
     function setUp() public {
         initializeBoilerplate();
+        deal(address(DAI), USER1, 1_000_000e18);
+        deal(address(USDC), USER1, 1_000_000e6);
+
         vm.warp(52 weeks);
         rewardToken = new MockERC20("test reward token", "RTKN", 18);
 
@@ -107,13 +110,12 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
     }
 
     function testOpenUniPosition() public {
-        deal(address(DAI), USER1, 1_000e18);
-        deal(address(USDC), USER1, 1_000e6);
-
         vm.startPrank(USER1);
-        mintNewPosition();
+        mintNewPosition({amount0ToMint: 1_000e18, amount1ToMint: 1_000e6});
         vm.stopPrank();
     }
+
+    function testStake() public {}
 
     ////////////////////////////////////////////////////////////////////
     //                            Utilities                           //
@@ -124,10 +126,10 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
     /// @return liquidity The amount of liquidity for the position
     /// @return amount0 The amount of token0
     /// @return amount1 The amount of token1
-    function mintNewPosition() public returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1) {
-        uint256 amount0ToMint = 100e18;
-        uint256 amount1ToMint = 100e6;
-
+    function mintNewPosition(uint256 amount0ToMint, uint256 amount1ToMint)
+        public
+        returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)
+    {
         TransferHelper.safeApprove(DAI, address(nonfungiblePositionManager), amount0ToMint);
         TransferHelper.safeApprove(USDC, address(nonfungiblePositionManager), amount1ToMint);
 
@@ -173,6 +175,21 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         deposits[tokenId] = Deposit({owner: owner, liquidity: liquidity, token0: token0, token1: token1});
     }
 
+    // Create a new Uniswap V3 Gauge from a Uniswap V3 pool
+    function createGaugeAndAddToGaugeBoost(IUniswapV3Pool _pool, uint256 minWidth)
+        internal
+        returns (UniswapV3Gauge _gauge)
+    {
+        uniswapV3GaugeFactory.createGauge(address(_pool), abi.encode(uint24(minWidth)));
+        _gauge = UniswapV3Gauge(address(uniswapV3GaugeFactory.strategyGauges(address(_pool))));
+        bHermesToken.gaugeBoost().addGauge(address(_gauge));
+    }
+
+    // Create a Uniswap V3 Staker incentive
+    function createIncentive(IUniswapV3Staker.IncentiveKey memory _key, uint256 amount) internal {
+        uniswapV3Staker.createIncentive(_key, amount);
+    }
+
     // Implementing `onERC721Received` so this contract can receive custody of erc721 tokens
     function onERC721Received(address operator, address, uint256 tokenId, bytes calldata)
         external
@@ -186,40 +203,3 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         return this.onERC721Received.selector;
     }
 }
-// // Create a new Uniswap V3 Gauge from a Uniswap V3 pool
-// function createGaugeAndAddToGaugeBoost(IUniswapV3Pool _pool, uint256 minWidth)
-//     internal
-//     returns (UniswapV3Gauge _gauge)
-// {
-//     uniswapV3GaugeFactory.createGauge(address(_pool), abi.encode(uint24(minWidth)));
-//     _gauge = UniswapV3Gauge(address(uniswapV3GaugeFactory.strategyGauges(address(_pool))));
-//     bHermesToken.gaugeBoost().addGauge(address(_gauge));
-// }
-
-// // Create a Uniswap V3 Staker incentive
-// function createIncentive(IUniswapV3Staker.IncentiveKey memory _key, uint256 amount) internal {
-//     uniswapV3Staker.createIncentive(_key, amount);
-// }
-
-// function newNFT(int24 tickLower, int24 tickUpper, uint128 sqrtPriceX96) internal returns (uint256 tokenId) {
-//     (uint256 amount0, uint256 amount1) = PoolVariables.amountsForLiquidity(pool, sqrtPriceX96, tickLower, tickUpper);
-//
-//     token0.mint(address(this), amount0);
-//     token1.mint(address(this), amount1);
-//     token0.approve(address(nonfungiblePositionManager), amount0);
-//     token1.approve(address(nonfungiblePositionManager), amount1);
-//
-//     pool.slot0();
-//
-//     tokenId = UniswapV3Assistant.mintPosition(
-//         nonfungiblePositionManager,
-//         address(token0),
-//         address(token1),
-//         poolFee,
-//         tickLower,
-//         tickUpper,
-//         amount0,
-//         amount1
-//     );
-//     vm.warp(block.timestamp + 100);
-// }
