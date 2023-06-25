@@ -109,6 +109,8 @@ contract Boilerplate is Test {
     function makeAddr() public {
         ATTACKER = address(0x1337);
         vm.label(ATTACKER, "ATTACKER");
+        DEPLOYER = address(0xDEADBEEF);
+        vm.label(DEPLOYER, "DEPLOYER");
         USER1 = address(0x1111);
         vm.label(USER1, "USER1");
         USER2 = address(0x2222);
@@ -117,6 +119,8 @@ contract Boilerplate is Test {
         vm.label(USER3, "USER3");
         USER4 = address(0x4444);
         vm.label(USER4, "USER4");
+        vm.label(address(nonfungiblePositionManager), "nonfungiblePositionManager");
+        vm.label(address(DAI_USDC_pool), "DAI_USDC_pool");
     }
 
     function readSlot(address target, bytes4 selector) public returns (bytes32) {
