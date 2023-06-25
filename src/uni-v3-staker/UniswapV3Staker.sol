@@ -210,6 +210,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
         hermes.safeTransferFrom(msg.sender, address(this), reward);
 
         emit IncentiveCreated(key.pool, startTime, reward);
+        emit log("----------------------------------------");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -218,6 +219,11 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
 
     /// @inheritdoc IUniswapV3Staker
     function endIncentive(IncentiveKey memory key) external returns (uint256 refund) {
+        emit log("");
+        emit log("==== UniswapV3Staker.endIncentive ====");
+        emit log_named_uint("[INFO] Computed incentive end time: ", IncentiveTime.getEnd(key.startTime));
+        emit log_named_uint("[INFO] Current block timestamp: ", block.timestamp);
+
         if (block.timestamp < IncentiveTime.getEnd(key.startTime)) {
             revert EndIncentiveBeforeEndTime();
         }
@@ -227,19 +233,27 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
         Incentive storage incentive = incentives[incentiveId];
 
         refund = incentive.totalRewardUnclaimed;
+        emit log_named_uint("[INFO] Total reward unclaimed: ", refund);
 
         if (refund == 0) revert EndIncentiveNoRefundAvailable();
+
+        emit log_named_uint("[INFO] Number of remaining stakes: ", incentive.numberOfStakes);
         if (incentive.numberOfStakes > 0) revert EndIncentiveWhileStakesArePresent();
 
         // issue the refund
         incentive.totalRewardUnclaimed = 0;
 
+        emit log_named_uint("[INFO] Minter balance before refund: ", hermes.balanceOf(minter));
+        emit log("[STATUS] SafeTransfer refund to minter...");
+
         hermes.safeTransfer(minter, refund);
+
+        emit log_named_uint("[INFO] Minter balance after refund: ", hermes.balanceOf(minter));
 
         /* @audit What does that mean? */
         // note we never clear totalSecondsClaimedX128
-
         emit IncentiveEnded(incentiveId, refund);
+        emit log("----------------------------------------");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -255,6 +269,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
         override
         returns (bytes4)
     {
+        emit log("==== UniV3Staker.onERC721Received ====");
         /* @audit-issue GAS? Why is this assigning it to a local variable instead of using address(nonfungiblePositionManager)? 
         * Probably a gas optimization to reduce storage loads 
         * Why using it later directly then? */
@@ -269,12 +284,14 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
         /* @audit Why is this event emitted before the _stakeToken? */
         emit DepositTransferred(tokenId, address(0), from);
 
-        /* @audit Hardocded value for tests, to skip init code hash */
+        /* @audit Hardcoded value for tests, to skip init code hash */
         pool = IUniswapV3Pool(0xF0428617433652c9dc6D1093A42AdFbF30D29f74);
+        emit log("[STATUS] USING HARDCODED DAI/USDC POOL!");
 
         // stake the token in the current incentive
         _stakeToken(tokenId, pool, tickLower, tickUpper, liquidity);
 
+        emit log("---------- UniswapV3Staker.onERC721Received callback ended ----------");
         return this.onERC721Received.selector;
     }
 
@@ -282,7 +299,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
                             WITHDRAW TOKEN LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    /* @audit This function should not let withdraw someone elses token */
+    /* @audit-ok This function should not let withdraw someone elses token */
     /* @audit Does this make sure that the recipient is aware of the ERC721? */
     /// @inheritdoc IUniswapV3Staker
     function withdrawToken(uint256 tokenId, address to, bytes memory data) external {
@@ -324,12 +341,22 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
     * Yes it does require unstaking first (at least that's what they are doing in the tests). */
     /// @inheritdoc IUniswapV3Staker
     function claimAllRewards(address to) external returns (uint256 reward) {
+        emit log("");
+        emit log("==== UniswapV3Staker.claimAllRewards ====");
+
+        emit log_named_address("[INFO] Msg.sender for rewards[msg.sender]: ", msg.sender);
         reward = rewards[msg.sender];
+
+        emit log_named_uint("[INFO] User rewards: ", reward);
+
         rewards[msg.sender] = 0;
 
+        emit log_named_uint("[INFO] User's hermes balance before: ", hermes.balanceOf(to));
         if (reward > 0) hermes.safeTransfer(to, reward);
+        emit log_named_uint("[INFO] User's hermes balance after: ", hermes.balanceOf(to));
 
         emit RewardClaimed(to, reward);
+        emit log("----------------------------------------");
     }
 
     /// @inheritdoc IUniswapV3Staker
@@ -396,6 +423,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
             secondsInsideX128,
             block.timestamp
         );
+        emit log("----------------------------------------");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -420,7 +448,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
     /// @inheritdoc IUniswapV3Staker
     function unstakeToken(uint256 tokenId) external {
         IncentiveKey storage incentiveId = stakedIncentiveKey[tokenId];
-        /* @audit What is this check about? It's all over the code. */
+        /* @audit-ok What is this check about? It's all over the code. 
+        * The incentive program has to be started */
         if (incentiveId.startTime != 0) _unstakeToken(incentiveId, tokenId, true);
     }
 
@@ -510,6 +539,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
             emit log("Computing boosted seconds inside...");
             emit log("uint160 secondsInsideX128 = (secondsPerLiquidityInsideX128 - secondsPerLiquidityInsideInitialX128) * liquidity; ");
             emit log("If no boost -> 40% of that //// If boost -> 40% + 60%");
+            emit log("");
         
             secondsInsideX128 = RewardMath.computeBoostedSecondsInsideX128(
                 stakedDuration,
@@ -535,7 +565,9 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
             block.timestamp
         );
 
+        emit log_named_uint("[INFO] Total reward unclaimed: ", incentive.totalRewardUnclaimed);
         emit log_named_uint("[CALC] Boosted Reward Amount: ", reward);
+        emit log_named_decimal_uint("[INFO] User Reward as a percentage of total unclaimed: ", reward * 100e18 / incentive.totalRewardUnclaimed, 18);
 
         unchecked {
             // if this overflows, e.g. after 2^32-1 full liquidity seconds have been claimed,
@@ -558,6 +590,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
         if (liquidity >= type(uint96).max) stake.liquidityIfOverflow = 0;
         delete stakedIncentiveKey[tokenId];
         emit TokenUnstaked(tokenId, incentiveId);
+        emit log("----------------------------------------");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -571,7 +604,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
         (IUniswapV3Pool pool, int24 tickLower, int24 tickUpper, uint128 liquidity) =
             NFTPositionInfo.getPositionInfo(factory, nonfungiblePositionManager, tokenId);
 
-        /* @audit Hardocded value for tests, to skip init code hash */
+        /* @audit Hardocded value for tests to skip init code hash */
         pool = IUniswapV3Pool(0xF0428617433652c9dc6D1093A42AdFbF30D29f74);
 
         _stakeToken(tokenId, pool, tickLower, tickUpper, liquidity);
@@ -635,6 +668,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
         }
 
         emit TokenStaked(tokenId, incentiveId, liquidity);
+        emit log("----------------------------------------");
     }
 
     /*//////////////////////////////////////////////////////////////
