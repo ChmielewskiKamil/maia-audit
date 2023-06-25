@@ -431,11 +431,20 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
 
     /* @audit This function has many interactions. What are the things it does? */
     function _unstakeToken(IncentiveKey memory key, uint256 tokenId, bool isNotRestake) private {
+        emit log("");
+        emit log("==== UniswapV3Staker._unstakeToken ====");
+
         /* @info Liquidity NFT position info: owner, tick lower upper and when staked */
         Deposit storage deposit = deposits[tokenId];
 
         (uint96 endTime, uint256 stakedDuration) =
             IncentiveTime.getEndAndDuration(key.startTime, deposit.stakedTimestamp, block.timestamp);
+
+        emit log_named_uint("[INFO] Incentive start time: ", key.startTime);
+        emit log_named_uint("[INFO] Deposit staked timestamp: ", deposit.stakedTimestamp);
+        emit log_named_uint("[INFO] Current block timestamp: ", block.timestamp);
+        emit log_named_uint("[CALC] Incentive end time: ", endTime);
+        emit log_named_uint("[CALC] Deposit duration: ", stakedDuration);
 
         address owner = deposit.owner;
 
@@ -473,19 +482,35 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
 
             // If tokenId is attached to gauge
             if (hermesGaugeBoost.isUserGauge(owner, address(gauge)) && _userAttachements[owner][key.pool] == tokenId) {
+                emit log("[STATUS] User is attached to the gauge (`if` entered)");
                 // get boost amount and total supply
                 (boostAmount, boostTotalSupply) = hermesGaugeBoost.getUserGaugeBoost(owner, address(gauge));
+
+                emit log_named_uint("[INFO] User boost amount: ", boostAmount);
+                emit log_named_uint("[INFO] Boost total supply: ", boostTotalSupply);
+
                 gauge.detachUser(owner);
                 _userAttachements[owner][key.pool] = 0;
             }
 
             uint160 secondsPerLiquidityInsideInitialX128;
             (secondsPerLiquidityInsideInitialX128, liquidity) = stakes(tokenId, incentiveId);
+
+            emit log_named_uint("[INFO] Seconds per liquidity inside INITIAL X128: ", secondsPerLiquidityInsideInitialX128);
+            emit log_named_uint("[INFO] Liquidity: ", liquidity);
+
             if (liquidity == 0) revert TokenNotStaked();
 
             (, uint160 secondsPerLiquidityInsideX128,) =
                 key.pool.snapshotCumulativesInside(deposit.tickLower, deposit.tickUpper);
 
+            emit log_named_uint("[CALC] Seconds per liquidity inside X128: ", secondsPerLiquidityInsideX128);
+
+            emit log("");
+            emit log("Computing boosted seconds inside...");
+            emit log("uint160 secondsInsideX128 = (secondsPerLiquidityInsideX128 - secondsPerLiquidityInsideInitialX128) * liquidity; ");
+            emit log("If no boost -> 40% of that //// If boost -> 40% + 60%");
+        
             secondsInsideX128 = RewardMath.computeBoostedSecondsInsideX128(
                 stakedDuration,
                 liquidity,
@@ -495,7 +520,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
                 secondsPerLiquidityInsideX128
             );
 
-            emit log_named_uint("[_unstake] Boosted Seconds Inside: ", secondsInsideX128);
+            emit log_named_uint("[CALC] Boosted Seconds Inside: ", secondsInsideX128);
         }
 
         deposit.stakedTimestamp = 0;
@@ -510,7 +535,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
             block.timestamp
         );
 
-        emit log_named_uint("[_unstake] Boosted Reward Amount: ", reward);
+        emit log_named_uint("[CALC] Boosted Reward Amount: ", reward);
 
         unchecked {
             // if this overflows, e.g. after 2^32-1 full liquidity seconds have been claimed,
