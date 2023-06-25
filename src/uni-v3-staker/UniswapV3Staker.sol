@@ -61,6 +61,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
     /// @dev stakes[tokenId][incentiveHash] => Stake
     mapping(uint256 => mapping(bytes32 => Stake)) private _stakes;
 
+    /* @info This thing holds an information: to which incentive program is the NFT attached to
+    * For ex. stakedIncentiveKey[MyNFT] will return the incentive key which describes the incentive program */
     /// @dev stakedIncentives[tokenId] => incentiveIds
     mapping(uint256 => IncentiveKey) private stakedIncentiveKey;
 
@@ -284,10 +286,6 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
         /* @audit Why is this event emitted before the _stakeToken? */
         emit DepositTransferred(tokenId, address(0), from);
 
-        /* @audit Hardcoded value for tests, to skip init code hash */
-        pool = IUniswapV3Pool(0xF0428617433652c9dc6D1093A42AdFbF30D29f74);
-        emit log("[STATUS] USING HARDCODED DAI/USDC POOL!");
-
         // stake the token in the current incentive
         _stakeToken(tokenId, pool, tickLower, tickUpper, liquidity);
 
@@ -431,6 +429,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
     //////////////////////////////////////////////////////////////*/
 
     function restakeToken(uint256 tokenId) external {
+        emit log("");
+        emit log("==== UniswapV3Staker.restakeToken ====");
         IncentiveKey storage incentiveId = stakedIncentiveKey[tokenId];
         /* @audit-issue Shouldn't the flag isNotRestake be false here? */
         if (incentiveId.startTime != 0) _unstakeToken(incentiveId, tokenId, true);
@@ -439,6 +439,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
             NFTPositionInfo.getPositionInfo(factory, nonfungiblePositionManager, tokenId);
 
         _stakeToken(tokenId, pool, tickLower, tickUpper, liquidity);
+        emit log("----- UniswapV3Staker.restakeToken completed ------");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -501,6 +502,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
         }
 
         bytes32 incentiveId = IncentiveId.compute(key);
+        emit log_named_bytes32("[CALC] Incentive ID: ", incentiveId);
         uint160 secondsInsideX128;
         uint128 liquidity;
         {
@@ -616,7 +618,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
     {
         emit log("");
         emit log("==== UniswapV3Staker._stakeToken ====");
-        emit log_named_uint("[INFO] Timestamp: ", block.timestamp);
+        emit log_named_uint("[INFO] Current timestamp: ", block.timestamp);
         emit log_named_uint("[INFO] Computed start time: ", IncentiveTime.computeStart(block.timestamp));
         emit log_named_address("[INFO] Pool: ", address(pool));
         IncentiveKey memory key = IncentiveKey({pool: pool, startTime: IncentiveTime.computeStart(block.timestamp)});

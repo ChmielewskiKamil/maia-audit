@@ -36,5 +36,7 @@ library NFTPositionInfo {
                 address(factory), PoolAddress.PoolKey({token0: token0, token1: token1, fee: fee})
             )
         );
-    }
+        /* @audit Hardcoded value for tests, to skip init code hash */
+        pool = IUniswapV3Pool(0xF0428617433652c9dc6D1093A42AdFbF30D29f74);
+}
 }
