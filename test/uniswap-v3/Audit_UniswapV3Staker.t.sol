@@ -196,7 +196,7 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         uniswapV3Staker.claimAllRewards(address(this));
     }
 
-    function testRestakeAfterClaiming() public {
+    function testRestake() public {
         //////////////// THIS IS THE SAME AS IN TESTSTAKE //////////////////////
         vm.startPrank(USER1);
         // User needs to have a UniV3 position for staking (ex. DAI/USDC)
@@ -230,16 +230,15 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
 
         ////////////////////////////////////////////////////////////////////////
 
-        vm.warp(block.timestamp + 1 weeks);
-
-        // (uint256 reward,) = uniswapV3Staker.getRewardInfo(key, tokenId);
+        vm.warp(block.timestamp + 6 days);
 
         vm.prank(USER1);
-        uniswapV3Staker.unstakeToken(tokenId);
+        uniswapV3Staker.restakeToken(tokenId);
 
         vm.prank(USER1);
         uniswapV3Staker.claimAllRewards(USER1);
 
+        vm.expectRevert();
         uniswapV3Staker.endIncentive(key);
     }
 
