@@ -242,6 +242,68 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         uniswapV3Staker.endIncentive(key);
     }
 
+    function testRestake_AnyoneCanRestakeAfterIncentiveEnds() public {
+        //////////////// THIS IS THE SAME //////////////////////
+        vm.startPrank(USER1);
+        // User needs to have a UniV3 position for staking (ex. DAI/USDC)
+        (uint256 tokenId,,,) = mintNewPosition({amount0ToMint: 1_000e18, amount1ToMint: 1_000e6, _recipient: USER1});
+        emit log_named_address("[TEST] Token owner: ", nonfungiblePositionManager.ownerOf(tokenId));
+        vm.stopPrank();
+
+        gauge = createGaugeAndAddToGaugeBoost({_pool: DAI_USDC_pool, minWidth: 1});
+
+        vm.startPrank(USER2);
+
+        emit log_named_uint("[TEST]: Computed start time (key): ", IncentiveTime.computeEnd(block.timestamp));
+        emit log_named_address("[TEST]: Pool address: ", address(DAI_USDC_pool));
+
+        // Someone will create the incentive to draw the liquidity to his project (USER2)
+        key = IUniswapV3Staker.IncentiveKey({pool: DAI_USDC_pool, startTime: IncentiveTime.computeEnd(block.timestamp)});
+        rewardToken.approve(address(uniswapV3Staker), 10_000e18);
+        createIncentive({_key: key, amount: 10_000e18});
+        vm.stopPrank();
+
+        vm.warp(key.startTime);
+
+        vm.startPrank(USER1);
+        nonfungiblePositionManager.safeTransferFrom(USER1, address(uniswapV3Staker), tokenId);
+        vm.stopPrank();
+
+        assertEq(nonfungiblePositionManager.ownerOf(tokenId), address(uniswapV3Staker));
+        (address owner,,, uint256 stakedTimestamp) = uniswapV3Staker.deposits(tokenId);
+        assertEq(owner, USER1);
+        assertEq(stakedTimestamp, block.timestamp);
+
+        ////////////////////////////////////////////////////////////////////////
+
+        // We will warp the time past the incentive end time
+        vm.warp(block.timestamp + 8 days);
+
+        vm.startPrank(USER2);
+        // It is not possible to restake if new incentive program has not been started. The calculated incentiveId, 
+        // will use the timestamp of the new period and it will be different. RestakeToken would fail with nonExistentIncentive
+        key = IUniswapV3Staker.IncentiveKey({pool: DAI_USDC_pool, startTime: IncentiveTime.computeEnd(block.timestamp)});
+        rewardToken.approve(address(uniswapV3Staker), 10_000e18);
+        createIncentive({_key: key, amount: 10_000e18});
+        vm.stopPrank();
+
+        vm.warp(key.startTime);
+
+        // THE ISSUE IS ON THE FOLLOWING LINE
+        vm.expectRevert();
+        // According to the comment in the UniswapV3Staker _unstakeToken function,
+        // anyone should be able to unstake the token after the incentive ends.
+        vm.prank(USER2);
+        uniswapV3Staker.restakeToken(tokenId);
+
+        vm.warp(block.timestamp + 5 days);
+
+        vm.prank(USER1);
+        uniswapV3Staker.unstakeToken(tokenId);
+
+        vm.prank(USER1);
+        uniswapV3Staker.claimAllRewards(USER1);
+    }    
     function testShouldNotWithdrawForSomeoneElse() public {}
 
     ////////////////////////////////////////////////////////////////////
