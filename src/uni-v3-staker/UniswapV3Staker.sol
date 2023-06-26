@@ -432,7 +432,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
         emit log("");
         emit log("==== UniswapV3Staker.restakeToken ====");
         IncentiveKey storage incentiveId = stakedIncentiveKey[tokenId];
-        /* @audit-issue Shouldn't the flag isNotRestake be false here? */
+        /* @audit-confirmed Shouldn't the flag isNotRestake be false here? 
+        * This flag should be false, so that anyone can restake. See testRestake_AnyoneCanRestakeAfterIncentiveEnds test */
         if (incentiveId.startTime != 0) _unstakeToken(incentiveId, tokenId, true);
 
         (IUniswapV3Pool pool, int24 tickLower, int24 tickUpper, uint128 liquidity) =
