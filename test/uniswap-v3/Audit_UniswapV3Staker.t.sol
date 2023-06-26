@@ -40,7 +40,7 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
     UniswapV3Gauge gauge;
 
     // TODO Substitute this with HERMES?
-    MockERC20 rewardToken;
+    HERMES rewardToken;
 
     IUniswapV3Staker uniswapV3Staker;
     UniswapV3Staker uniswapV3StakerContract;
@@ -59,11 +59,10 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
     function setUp() public {
         initializeBoilerplate();
 
-        vm.startPrank(DEPLOYER);
-        rewardToken = new MockERC20("test reward token", "RTKN", 18);
+        rewardToken = new HERMES({_owner: ADMIN});
 
         bHermesToken =
-        new bHermes({ _hermes: rewardToken, _owner: address(this), _gaugeCycleLength: 1 weeks, _incrementFreezeWindow: 12 hours });
+        new bHermes({ _hermes: rewardToken, _owner: ADMIN, _gaugeCycleLength: 1 weeks, _incrementFreezeWindow: 12 hours });
 
         flywheelGaugeWeightBooster = new FlywheelBoosterGaugeWeight({ _bHermesGauges: bHermesToken.gaugeWeight() });
 
@@ -85,7 +84,8 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         );
 
         flywheelGaugeRewards =
-        new FlywheelGaugeRewards({_rewardToken: address(rewardToken),_owner:address(this), _gaugeToken:bHermesToken.gaugeWeight(),  _minter:baseV2Minter});
+        new FlywheelGaugeRewards({_rewardToken: address(rewardToken), _owner:ADMIN, _gaugeToken:bHermesToken.gaugeWeight(),  _minter:baseV2Minter});
+        vm.label(address(flywheelGaugeRewards), "flywheelGaugeRewards");
 
         baseV2Minter.initialize(flywheelGaugeRewards);
 
@@ -97,8 +97,9 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
             flywheelGaugeRewards,
             bribesFactory,
             // Owner
-            address(this)
+            ADMIN
         );
+        vm.label(address(uniswapV3GaugeFactory), "uniswapV3GaugeFactory");
 
         // This is calling GaugeManager.addGauge(address), but why?
         vm.mockCall(address(0), abi.encodeWithSignature("addGauge(address)"), abi.encode(""));
@@ -108,7 +109,6 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         uniswapV3Staker = IUniswapV3Staker(address(uniswapV3StakerContract));
         vm.label(address(uniswapV3Staker), "uniswapV3Staker");
 
-        vm.stopPrank();
 
         deal(address(DAI), USER1, 1_000_000e18);
         deal(address(USDC), USER1, 1_000_000e6);
@@ -242,6 +242,7 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         uniswapV3Staker.endIncentive(key);
     }
 
+    // Confirmed Finding
     function testRestake_AnyoneCanRestakeAfterIncentiveEnds() public {
         //////////////// THIS IS THE SAME //////////////////////
         vm.startPrank(USER1);
@@ -250,7 +251,9 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         emit log_named_address("[TEST] Token owner: ", nonfungiblePositionManager.ownerOf(tokenId));
         vm.stopPrank();
 
+        vm.startPrank(ADMIN);
         gauge = createGaugeAndAddToGaugeBoost({_pool: DAI_USDC_pool, minWidth: 1});
+        vm.stopPrank();
 
         vm.startPrank(USER2);
 
@@ -290,11 +293,12 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         vm.warp(key.startTime);
 
         // THE ISSUE IS ON THE FOLLOWING LINE
-        vm.expectRevert();
+        vm.expectRevert(bytes4(keccak256("NotCalledByOwner()")));
         // According to the comment in the UniswapV3Staker _unstakeToken function,
-        // anyone should be able to unstake the token after the incentive ends.
-        vm.prank(USER2);
+        // anyone should be able to restake the token after the incentive ends.
+        vm.startPrank(USER2);
         uniswapV3Staker.restakeToken(tokenId);
+        vm.stopPrank();
 
         vm.warp(block.timestamp + 5 days);
 
@@ -304,6 +308,56 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         vm.prank(USER1);
         uniswapV3Staker.claimAllRewards(USER1);
     }    
+
+    function testMinter_UpdatePeriodFasterThanExpected() public {
+        vm.startPrank(ADMIN);
+        gauge = createGaugeAndAddToGaugeBoost({_pool: DAI_USDC_pool, minWidth: 1});
+        vm.stopPrank();
+
+        vm.prank(ADMIN);
+        rewardToken.mint(USER1, 100_000e18);
+        // deal(address(rewardToken), USER1, 100_000e18);
+        vm.startPrank(USER1);
+        rewardToken.approve(address(bHermesToken), 10_000e18);
+        bHermesToken.deposit(10_000e18, USER1);
+        vm.stopPrank();
+
+        emit log("==== testMinter_UpdatePeriodFasterThanExpected ====");
+        uint256 activePeriodBefore1 = baseV2Minter.activePeriod();
+        uint256 circulatingSupplyBefore1 = baseV2Minter.circulatingSupply();
+        emit log_named_uint("[TEST] Minter active period at test start: ", activePeriodBefore1);
+        emit log_named_uint("[TEST] Minter HERMES circulating supply at test start: ", circulatingSupplyBefore1);
+
+        emit log("[STATUS] Calling update period without waiting 7 days...");
+        baseV2Minter.updatePeriod();
+
+        uint256 activePeriodAfter1 = baseV2Minter.activePeriod();
+        uint256 circulatingSupplyAfter1 = baseV2Minter.circulatingSupply();
+        emit log_named_uint("[TEST] Minter active period after updating period: ", activePeriodAfter1);
+        emit log_named_uint("[TEST] Minter HERMES circulating supply after updating period: ", circulatingSupplyAfter1);
+
+        // Calling update period before 7 days have passed should have no effect
+        assertEq(activePeriodBefore1, activePeriodAfter1);
+        assertEq(circulatingSupplyBefore1, circulatingSupplyAfter1);
+
+        emit log("[STATUS] Warp 7 days in the future...");
+        vm.warp(block.timestamp + 7 days);
+
+        uint256 activePeriodBefore2 = baseV2Minter.activePeriod();
+        uint256 circulatingSupplyBefore2 = baseV2Minter.circulatingSupply();
+
+        vm.startPrank(USER2, USER2);
+        // gauge.newEpoch();
+        baseV2Minter.updatePeriod();
+        vm.stopPrank();
+
+        uint256 activePeriodAfter2 = baseV2Minter.activePeriod();
+        uint256 circulatingSupplyAfter2 = baseV2Minter.circulatingSupply();
+
+        assertNotEq(activePeriodBefore2, activePeriodAfter2);
+        assertNotEq(circulatingSupplyBefore2, circulatingSupplyAfter2);
+    }
+
     function testShouldNotWithdrawForSomeoneElse() public {}
 
     ////////////////////////////////////////////////////////////////////
