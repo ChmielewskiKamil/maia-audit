@@ -117,10 +117,13 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
     /// @inheritdoc IUniswapV3Staker
     bHermesBoost public immutable hermesGaugeBoost;
 
-    /* @audit Is the `address _minter` the `BaseV2Minter`?
+    /* @audit-ok Is the `address _minter` the `BaseV2Minter`?
     * Probably yes, according to the interface: 
     * "It's the address to send undistributed rewards to".
-    * What are undistributed rewards then? Are there distributed rewards? */
+    * What are undistributed rewards then? Are there distributed rewards? 
+    *
+    * Minter mints HERMES tokens for rewards, after the incentive ends, 
+    * the undistributed rewards go back to minter */
     /// @param _factory the Uniswap V3 factory
     /// @param _nonfungiblePositionManager the NFT position manager contract address
     /// @param _maxIncentiveStartLeadTime the max duration of an incentive in seconds
@@ -262,7 +265,9 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
                             DEPOSIT TOKEN LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    /* @audit Why the first param does not have a name?*/
+    /* @audit-ok Why the first param does not have a name?
+    * From what I see this is a common practice on the onERC721Receiver, 
+    * when you don't need a param but need to define it just so the selector is correct. */
     /// @dev Upon receiving a Uniswap V3 ERC721, create the token deposit and
     ///      _stakes in current incentive setting owner to `from`.
     /// @inheritdoc IERC721Receiver
@@ -298,7 +303,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
     //////////////////////////////////////////////////////////////*/
 
     /* @audit-ok This function should not let withdraw someone elses token */
-    /* @audit Does this make sure that the recipient is aware of the ERC721? */
+    /* @audit-ok Does this make sure that the recipient is aware of the ERC721? */
     /// @inheritdoc IUniswapV3Staker
     function withdrawToken(uint256 tokenId, address to, bytes memory data) external {
         if (to == address(0)) revert InvalidRecipient();
