@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import "forge-std/Test.sol";
+
 import {Ownable} from "solady/auth/Ownable.sol";
 
 import {ERC20} from "solmate/tokens/ERC20.sol";
@@ -26,7 +28,7 @@ import {IBaseV2Gauge} from "./interfaces/IBaseV2Gauge.sol";
 * What is the incentive to protocol to boost user rewards? */
 
 /// @title Base V2 Gauge - Base contract for handling liquidity provider incentives and voter's bribes.
-abstract contract BaseV2Gauge is Ownable, IBaseV2Gauge {
+abstract contract BaseV2Gauge is Ownable, IBaseV2Gauge, Test {
     /*///////////////////////////////////////////////////////////////
                             GAUGE STATE
     //////////////////////////////////////////////////////////////*/
@@ -97,7 +99,12 @@ abstract contract BaseV2Gauge is Ownable, IBaseV2Gauge {
     * There is a function with the same name in GaugeManager which calls newEpoch on every gauge */
     /// @inheritdoc IBaseV2Gauge
     function newEpoch() external {
+        emit log("");
+        emit log("==== BaseV2Gauge.newEpoch ====");
         uint256 _newEpoch = (block.timestamp / WEEK) * WEEK;
+
+        emit log_named_uint("[INFO] Current epoch: ", epoch);
+        emit log_named_uint("[CALC] New epoch: ", _newEpoch);
 
         if (epoch < _newEpoch) {
             epoch = _newEpoch;
@@ -109,6 +116,7 @@ abstract contract BaseV2Gauge is Ownable, IBaseV2Gauge {
 
             emit Distribute(accruedRewards, _newEpoch);
         }
+        emit log("---- newEpoch END ----");
     }
 
     /* @audit-ok - Investigate if by distributing to the pool something will be broken
