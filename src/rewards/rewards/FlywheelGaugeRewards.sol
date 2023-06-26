@@ -2,6 +2,8 @@
 // Rewards logic inspired by Tribe DAO Contracts (flywheel-v2/src/rewards/FlywheelGaugeRewards.sol)
 pragma solidity ^0.8.0;
 
+import "forge-std/Test.sol";
+
 import {Ownable} from "solady/auth/Ownable.sol";
 import {SafeCastLib} from "solady/utils/SafeCastLib.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
@@ -15,7 +17,7 @@ import {IFlywheelGaugeRewards} from "../interfaces/IFlywheelGaugeRewards.sol";
 import {IBaseV2Minter} from "@hermes/interfaces/IBaseV2Minter.sol";
 
 /// @title Flywheel Gauge Reward Stream
-contract FlywheelGaugeRewards is Ownable, IFlywheelGaugeRewards {
+contract FlywheelGaugeRewards is Ownable, IFlywheelGaugeRewards, Test {
     using SafeTransferLib for address;
     using SafeCastLib for uint256;
 
@@ -236,6 +238,8 @@ contract FlywheelGaugeRewards is Ownable, IFlywheelGaugeRewards {
     * how is the first assignment performed then? */
     /// @inheritdoc IFlywheelGaugeRewards
     function getAccruedRewards() external returns (uint256 accruedRewards) {
+        emit log("");
+        emit log("==== FlywheelGaugeRewards.getAccruedRewards ====");
         /// @dev Update minter cycle and queue rewars if needed.
         minter.updatePeriod();
 
@@ -276,5 +280,6 @@ contract FlywheelGaugeRewards is Ownable, IFlywheelGaugeRewards {
         });
 
         if (accruedRewards > 0) rewardToken.safeTransfer(msg.sender, accruedRewards);
+        emit log("----- getAccruedRewards END -----");
     }
 }
