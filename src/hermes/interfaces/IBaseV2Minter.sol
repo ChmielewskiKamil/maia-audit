@@ -78,16 +78,16 @@ interface IBaseV2Minter is IRewardsStream {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Calculates circulating supply as total token supply - locked supply
-    function circulatingSupply() external view returns (uint256);
+    function circulatingSupply() external /*view*/ returns (uint256);
 
     /// @notice Calculates tail end (infinity) emissions, starts set as 2% of total supply.
-    function weeklyEmission() external view returns (uint256);
+    function weeklyEmission() external /*view*/ returns (uint256);
 
     /**
      * @notice Calculate inflation and adjust burn balances accordingly.
      * @param _minted Amount of minted bhermes
      */
-    function calculateGrowth(uint256 _minted) external view returns (uint256);
+    function calculateGrowth(uint256 _minted) external /*view*/ returns (uint256);
 
     /**
      * @notice Updates critical information surrounding emissions, such as
