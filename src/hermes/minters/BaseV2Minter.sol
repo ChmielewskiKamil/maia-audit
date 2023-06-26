@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
+import "forge-std/Test.sol";
+
 import {Ownable} from "solady/auth/Ownable.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 
@@ -17,7 +19,7 @@ import {IBaseV2Minter} from "../interfaces/IBaseV2Minter.sol";
 * creating the HERMES reward token. */
 /* @audit What is the B(3, 3) system? */
 /// @title Base V2 Minter - Mints HERMES tokens for the B(3,3) system
-contract BaseV2Minter is Ownable, IBaseV2Minter {
+contract BaseV2Minter is Ownable, IBaseV2Minter, Test {
     using SafeTransferLib for address;
 
     /*//////////////////////////////////////////////////////////////
@@ -122,23 +124,46 @@ contract BaseV2Minter is Ownable, IBaseV2Minter {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IBaseV2Minter
-    function circulatingSupply() public view returns (uint256) {
+    function circulatingSupply() public /* view */ returns (uint256) {
+        emit log("");
+        emit log("==== BaseV2Minter.circulatingSupply() ====");
+        emit log_named_uint("[INFO] HERMES total supply: ", HERMES(underlying).totalSupply());
+        emit log_named_uint("[INFO] HERMES vault total assets: ", vault.totalAssets());
+        emit log("---- circulatingSupply END ----");
         return HERMES(underlying).totalSupply() - vault.totalAssets();
     }
 
     /// @inheritdoc IBaseV2Minter
-    function weeklyEmission() public view returns (uint256) {
+    function weeklyEmission() public /*view*/ returns (uint256) {
+        emit log("");
+        emit log("==== BaseV2Minter.weeklyEmission() ====");
+        emit log_named_uint("[INFO] Circulating supply: ", circulatingSupply());
+        emit log_named_uint("[INFO] Tail emission: ", tailEmission);
+        emit log_named_uint("[INFO] Base: ", base);
+        emit log_named_uint("[CALC] Calculated weekly emission: ", (circulatingSupply() * tailEmission) / base);
+        emit log("---- weeklyEmission END ----");
         return (circulatingSupply() * tailEmission) / base;
     }
 
     /* @info _minted is the amount of minted bHermes */
     /// @inheritdoc IBaseV2Minter
-    function calculateGrowth(uint256 _minted) public view returns (uint256) {
+    function calculateGrowth(uint256 _minted) public /*view*/ returns (uint256) {
+        emit log("");
+        emit log("==== BaseV2Minter.calculateGrowth() ====");
+        emit log_named_uint("[INFO] Vault total assets: ", vault.totalAssets());
+        emit log_named_uint("[INFO] Minted HERMES (newWeeklyEmission): ", _minted);
+        emit log_named_uint("[INFO] HERMES total supply: ", HERMES(underlying).totalSupply());
+        emit log_named_uint("[CALC] Calculated growth: ", (vault.totalAssets() * _minted) / HERMES(underlying).totalSupply());
+        emit log("---- calculateGrowth END ----");
         return (vault.totalAssets() * _minted) / HERMES(underlying).totalSupply();
     }
 
+    /* @audit-issue Is this function supposed to be permissionless? 
+    * It will revert with unauthorized() because only Admin can mint new HERMES */
     /// @inheritdoc IBaseV2Minter
     function updatePeriod() public returns (uint256) {
+        emit log("");
+        emit log("==== BaseV2Minter.updatePeriod() ====");
         /* @audit What writes to the activePeriod? 
         * The initialize() sets the initial period */
         uint256 _period = activePeriod;
@@ -158,7 +183,10 @@ contract BaseV2Minter is Ownable, IBaseV2Minter {
             * This one will shift by another 5 days, but can be only called after 7 days.
             * The whole updating schedule will be shifted. After initialisation the update schedule
             * can be called 2 days sooner than expected. */
+            emit log_named_uint("[INFO] Current period: ", _period);
             _period = (block.timestamp / week) * week;
+            emit log_named_uint("[CALC] New period: ", _period);
+
             activePeriod = _period;
             /* @audit For all the calculations below substitute the names with underlying 
             * calculations 
@@ -184,6 +212,9 @@ contract BaseV2Minter is Ownable, IBaseV2Minter {
             
             /* @info HERE IS THE MINT*/
             if (_balanceOf < _required) {
+                emit log_named_address("[INFO] Address trying to mint: ", msg.sender);
+                emit log_named_address("[INFO] Hermes onlyOwner: ", address(HERMES(underlying).owner()));
+                // vm.prank(address(0xCAFE));
                 HERMES(underlying).mint(address(this), _required - _balanceOf);
             }
 
@@ -199,6 +230,7 @@ contract BaseV2Minter is Ownable, IBaseV2Minter {
             ///      here because activePeriod was updated
             try flywheelGaugeRewards.queueRewardsForCycle() {} catch {}
         }
+        emit log("---- updatePeriod END ----");
         return _period;
     }
 
