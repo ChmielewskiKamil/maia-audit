@@ -508,5 +508,61 @@ contract UniswapV3StakerTest is DSTestPlus, IERC721Receiver {
     }
 
     function testRestake() public {
+        rewardToken.mint(address(this), 1_000e18);
+        rewardToken.approve(address(bHermesToken), 1_000e18);
+        bHermesToken.deposit(1_000e18, address(this));
+        // Create a Uniswap V3 pool
+        (pool, poolContract) =
+            UniswapV3Assistant.createPool(uniswapV3Factory, address(token0), address(token1), poolFee);
+
+        // Initialize 1:1 0.3% fee pool
+        UniswapV3Assistant.initializeBalanced(poolContract);
+        hevm.warp(block.timestamp + 100);
+
+        // 3338502497096994491500 to give 1 ether per token with 0.3% fee and -60,60 ticks
+        uint256 tokenId = newNFT(-60, 60, 3338502497096994491500);
+
+        uint256 minWidth = 10;
+        // Create a gauge
+        gauge = createGaugeAndAddToGaugeBoost(pool, minWidth);
+
+        // Create a Uniswap V3 Staker incentive
+        key = IUniswapV3Staker.IncentiveKey({pool: pool, startTime: IncentiveTime.computeEnd(block.timestamp)});
+
+        uint256 rewardAmount = 1 ether;
+        rewardToken.mint(address(this), rewardAmount);
+        rewardToken.approve(address(uniswapV3Staker), rewardAmount);
+
+        createIncentive(key, rewardAmount);
+        hevm.warp(key.startTime);
+
+        // Transfer and stake the position in Uniswap V3 Staker
+        nonfungiblePositionManager.safeTransferFrom(address(this), address(uniswapV3Staker), tokenId);
+
+        // Check that the position is in Uniswap V3 Staker
+        assertEq(nonfungiblePositionManager.ownerOf(tokenId), address(uniswapV3Staker));
+        (address owner,,, uint256 stakedTimestamp) = uniswapV3Staker.deposits(tokenId);
+        assertEq(owner, address(this));
+        assertEq(stakedTimestamp, block.timestamp);
+
+        hevm.warp(block.timestamp + 1 weeks);
+
+        (uint256 reward,) = uniswapV3Staker.getRewardInfo(key, tokenId);
+        assertEq(reward, ((1 ether * 4) / 10));
+
+        // Create a Uniswap V3 Staker incentive
+        key = IUniswapV3Staker.IncentiveKey({pool: pool, startTime: IncentiveTime.computeEnd(block.timestamp)});
+
+        uint256 rewardAmount2 = 1 ether;
+        rewardToken.mint(address(this), rewardAmount2);
+        rewardToken.approve(address(uniswapV3Staker), rewardAmount2);
+
+        createIncentive(key, rewardAmount);
+        hevm.warp(key.startTime);
+
+        baseV2Minter.updatePeriod();
+
+        hevm.prank(user1);
+        uniswapV3Staker.restakeToken(tokenId);
     }
 }
