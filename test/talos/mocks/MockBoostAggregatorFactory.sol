@@ -4,8 +4,5 @@ pragma solidity ^0.8.0;
 import "@talos/factories/BoostAggregatorFactory.sol";
 
 contract MockBoostAggregatorFactory is BoostAggregatorFactory {
-
-    constructor(
-        UniswapV3Staker _uniswapV3Staker
-    ) BoostAggregatorFactory(_uniswapV3Staker) {}
+    constructor(UniswapV3Staker _uniswapV3Staker) BoostAggregatorFactory(_uniswapV3Staker) {}
 }

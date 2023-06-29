@@ -4,7 +4,6 @@ pragma solidity ^0.8.0;
 import "@gauges/factories/BribesFactory.sol";
 
 contract MockBribesFactory is BribesFactory {
-
     constructor(
         BaseV2GaugeManager _gaugeManager,
         FlywheelBoosterGaugeWeight _flywheelGaugeWeightBooster,

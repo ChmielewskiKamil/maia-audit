@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import {console2} from "forge-std/console2.sol";
 import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
 
-import { MockERC20 } from "../mocks/MockERC20.sol";
+import {MockERC20} from "../mocks/MockERC20.sol";
 import "../mocks/MockBaseV2GaugeManager.sol";
 
 import "../mocks/MockBribesFactory.sol";
@@ -12,7 +12,6 @@ import "../mocks/MockBribesFactory.sol";
 error Unauthorized();
 
 contract BribesFactoryTest is DSTestPlus {
-
     address gaugeManager = address(0xCAFE);
     address flywheelGaugeWeightBooster = address(0xBCAA);
     uint256 rewardsCycleLength = 10;
@@ -26,14 +25,8 @@ contract BribesFactoryTest is DSTestPlus {
     ERC20 bribeToken2;
 
     function mockBHermes() public {
-        hevm.mockCall(_bHermes,
-                    abi.encodeWithSignature("gaugeWeight()"),
-                    abi.encode(address(0xCAFC))
-                    );
-        hevm.mockCall(_bHermes,
-                    abi.encodeWithSignature("gaugeBoost()"),
-                    abi.encode(address(0xCAFD))
-                    );
+        hevm.mockCall(_bHermes, abi.encodeWithSignature("gaugeWeight()"), abi.encode(address(0xCAFC)));
+        hevm.mockCall(_bHermes, abi.encodeWithSignature("gaugeBoost()"), abi.encode(address(0xCAFD)));
     }
 
     function setUp() public {
@@ -100,7 +93,7 @@ contract BribesFactoryTest is DSTestPlus {
 
         FlywheelCore flywheel = factory.bribeFlywheels(0);
         FlywheelCore flywheel2 = factory.bribeFlywheels(1);
-        
+
         assertEq(factory.bribeFlywheelIds(flywheel), 0);
         assertEq(factory.bribeFlywheelIds(flywheel2), 1);
     }

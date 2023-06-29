@@ -34,6 +34,7 @@ import {Deposit, DepositStatus, DepositMultipleInput, DepositInput} from "@omni/
 
 import {WETH9 as WETH} from "./mocks/WETH9.sol";
 import {Multicall2} from "./mocks/Multicall2.sol";
+
 interface IUniswapV3SwapCallback {
     function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata _data) external;
 }
@@ -383,7 +384,7 @@ contract CoreRootBridgeAgentTest is Test {
         //Ensure there are gas tokens from each chain in the system.
         vm.startPrank(address(rootPort));
         ERC20hTokenRoot(0x1FD5ad9D40e1154a91F1132C245f0480cf3deC89).mint(address(rootPort), 1 ether, avaxChainId); // hToken addresses created upon chain addition
-        ERC20hTokenRoot(0x1418E54090a03eA9da72C00B0B4f707181DcA8dd).mint(address(rootPort), 1 ether, ftmChainId);  // hToken addresses created upon chain addition
+        ERC20hTokenRoot(0x1418E54090a03eA9da72C00B0B4f707181DcA8dd).mint(address(rootPort), 1 ether, ftmChainId); // hToken addresses created upon chain addition
         vm.stopPrank();
 
         wAvaxLocalhToken = new MockERC20("hAVAX-AVAX", "LOCAL hTOKEN FOR AVAX IN AVAX", 18);

@@ -4,16 +4,14 @@ pragma solidity ^0.8.0;
 import {console2} from "forge-std/console2.sol";
 import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
 
-import { INonfungiblePositionManager } from "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
-import { bHermesBoost } from "@hermes/tokens/bHermesBoost.sol";
-
+import {INonfungiblePositionManager} from "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
+import {bHermesBoost} from "@hermes/tokens/bHermesBoost.sol";
 
 import "../mocks/MockBoostAggregatorFactory.sol";
 
 error Unauthorized();
 
 contract BoostAggregatorFactoryTest is DSTestPlus {
-
     address uniswapV3Staker = address(0xCAFE);
     address mockERC20 = address(0xBCAA);
     address nonfungiblePositionManager = address(0xBEEF);
@@ -22,21 +20,18 @@ contract BoostAggregatorFactoryTest is DSTestPlus {
     MockBoostAggregatorFactory factory;
 
     function mockHermes() public {
-        hevm.mockCall(uniswapV3Staker,
-                    abi.encodeWithSignature("hermes()"),
-                    abi.encode(mockERC20)
-                    );
+        hevm.mockCall(uniswapV3Staker, abi.encodeWithSignature("hermes()"), abi.encode(mockERC20));
     }
 
     function mockUniswapV3Staker() public {
-        hevm.mockCall(uniswapV3Staker,
-                    abi.encodeWithSignature("hermesGaugeBoost()"),
-                    abi.encode(bHermesBoost(hermesGaugeBoost))
-                    );
-        hevm.mockCall(uniswapV3Staker,
-                    abi.encodeWithSignature("nonfungiblePositionManager()"),
-                    abi.encode(INonfungiblePositionManager(nonfungiblePositionManager))
-                    );
+        hevm.mockCall(
+            uniswapV3Staker, abi.encodeWithSignature("hermesGaugeBoost()"), abi.encode(bHermesBoost(hermesGaugeBoost))
+        );
+        hevm.mockCall(
+            uniswapV3Staker,
+            abi.encodeWithSignature("nonfungiblePositionManager()"),
+            abi.encode(INonfungiblePositionManager(nonfungiblePositionManager))
+        );
     }
 
     function setUp() public {
@@ -67,7 +62,7 @@ contract BoostAggregatorFactoryTest is DSTestPlus {
         assertEq(address(aggregator.hermesGaugeBoost()), hermesGaugeBoost);
         assertEq(address(aggregator.nonfungiblePositionManager()), nonfungiblePositionManager);
         assertEq(address(aggregator.hermes()), mockERC20);
-        
+
         assertEq(factory.boostAggregators(1).owner(), owner);
     }
 

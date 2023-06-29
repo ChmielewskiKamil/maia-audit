@@ -308,7 +308,7 @@ contract TalosStrategyStakedTest is TalosTestor {
         hevm.expectEmit(true, true, true, true);
         // Values from Popsicle hardhat test: emit Rerange(-12360, -5280, 59402, 179537);
         // Fees are collected by UniswapV3Staker, so deposits slightly less
-        emit Rerange(talosBaseStrategy.tokenId() + 2, -12480, -5280, 58227, 178916); 
+        emit Rerange(talosBaseStrategy.tokenId() + 2, -12480, -5280, 58227, 178916);
 
         talosBaseStrategy.rebalance();
     }

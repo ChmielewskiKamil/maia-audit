@@ -34,6 +34,7 @@ import {Deposit, DepositStatus, DepositMultipleInput, DepositInput} from "@omni/
 
 import {WETH9 as WETH} from "./mocks/WETH9.sol";
 import {Multicall2} from "./mocks/Multicall2.sol";
+
 contract RootBridgeAgentDecodeTest is DSTestPlus {
     MockRootBridgeAgent mockRootBridgeAgent;
 

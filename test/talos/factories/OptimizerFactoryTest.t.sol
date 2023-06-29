@@ -9,7 +9,6 @@ import "../mocks/MockOptimizerFactory.sol";
 error Unauthorized();
 
 contract OptimizerFactoryTest is DSTestPlus {
-
     MockOptimizerFactory factory;
 
     function setUp() public {
@@ -36,12 +35,7 @@ contract OptimizerFactoryTest is DSTestPlus {
         hevm.assume(maxTotalSupply != 0);
 
         factory.createTalosOptimizer(
-            twapDuration,
-            maxTwapDeviation,
-            tickRangeMultiplier,
-            priceImpactPercentage,
-            maxTotalSupply,
-            owner
+            twapDuration, maxTwapDeviation, tickRangeMultiplier, priceImpactPercentage, maxTotalSupply, owner
         );
 
         assertEq(factory.optimizerIds(factory.optimizers(1)), 1);
@@ -56,7 +50,9 @@ contract OptimizerFactoryTest is DSTestPlus {
         address owner
     ) public {
         assertEq(factory.getOptimizers().length, 1);
-        testCreateTalosOptimizer(twapDuration, maxTwapDeviation, tickRangeMultiplier, priceImpactPercentage, maxTotalSupply, owner);
+        testCreateTalosOptimizer(
+            twapDuration, maxTwapDeviation, tickRangeMultiplier, priceImpactPercentage, maxTotalSupply, owner
+        );
         assertEq(factory.getOptimizers().length, 2);
     }
 
@@ -81,8 +77,12 @@ contract OptimizerFactoryTest is DSTestPlus {
         hevm.assume(priceImpactPercentage != priceImpactPercentage2);
         hevm.assume(maxTotalSupply != maxTotalSupply2);
 
-        testCreateTalosOptimizer(twapDuration, maxTwapDeviation, tickRangeMultiplier, priceImpactPercentage, maxTotalSupply, owner);
-        testCreateTalosOptimizer(twapDuration2, maxTwapDeviation2, tickRangeMultiplier2, priceImpactPercentage2, maxTotalSupply2, owner2);
+        testCreateTalosOptimizer(
+            twapDuration, maxTwapDeviation, tickRangeMultiplier, priceImpactPercentage, maxTotalSupply, owner
+        );
+        testCreateTalosOptimizer(
+            twapDuration2, maxTwapDeviation2, tickRangeMultiplier2, priceImpactPercentage2, maxTotalSupply2, owner2
+        );
 
         TalosOptimizer optimizer = factory.optimizers(1);
         assertEq(factory.optimizerIds(optimizer), 1);

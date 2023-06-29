@@ -351,6 +351,5 @@ contract FlywheelGaugeRewardsTest is DSTestPlus {
         require(rewards.getAccruedRewards() == 40e18); // nothing because no previous round
         hevm.prank(gauge4);
         require(rewards.getAccruedRewards() == 80e18); // nothing because no previous round
-
     }
 }

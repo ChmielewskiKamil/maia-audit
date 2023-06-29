@@ -4,6 +4,5 @@ pragma solidity ^0.8.0;
 import "@talos/factories/OptimizerFactory.sol";
 
 contract MockOptimizerFactory is OptimizerFactory {
-
     constructor() OptimizerFactory() {}
 }
