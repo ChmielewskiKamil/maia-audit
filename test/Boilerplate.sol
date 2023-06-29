@@ -4,7 +4,7 @@
 
 pragma solidity ^0.8.15;
 
-import {Test, stdStorage, StdStorage, console2 as console} from "forge-std/Test.sol";
+import {Test, console2 as console} from "forge-std/Test.sol";
 
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeCastLib} from "solmate/utils/SafeCastLib.sol";
@@ -46,7 +46,52 @@ import {PoolVariables} from "@talos/libraries/PoolVariables.sol";
 import {IUniswapV3Pool, UniswapV3Staker, IUniswapV3Staker, IncentiveTime} from "@v3-staker/UniswapV3Staker.sol";
 
 contract Boilerplate is Test {
-    using stdStorage for StdStorage;
+    ////////////////////////////////////////////////////////////////////
+    //                   Original UniV3StakerTest setup               //
+    ////////////////////////////////////////////////////////////////////
+
+    using FixedPointMathLib for uint256;
+    using FixedPointMathLib for uint160;
+    using FixedPointMathLib for uint128;
+    using SafeCastLib for uint256;
+    using SafeCastLib for int256;
+    using SafeTransferLib for ERC20;
+
+    struct Deposit {
+        address owner;
+        uint128 liquidity;
+        address token0;
+        address token1;
+    }
+
+    mapping(uint256 => Deposit) public deposits;
+
+    bHermes bHermesToken;
+
+    BaseV2Minter baseV2Minter;
+
+    FlywheelGaugeRewards flywheelGaugeRewards;
+    BribesFactory bribesFactory;
+
+    FlywheelBoosterGaugeWeight flywheelGaugeWeightBooster;
+
+    UniswapV3GaugeFactory uniswapV3GaugeFactory;
+    UniswapV3Gauge gauge;
+
+    HERMES rewardToken;
+
+    IUniswapV3Staker uniswapV3Staker;
+    UniswapV3Staker uniswapV3StakerContract;
+
+    IUniswapV3Staker.IncentiveKey key;
+    bytes32 incentiveId;
+
+    // Pool fee on arbitrum DAI/USDC pool is 0.01%
+    uint24 constant poolFee = 100;
+
+    ////////////////////////////////////////////////////////////////////
+    //                      Testing Boilerplate                       //
+    ////////////////////////////////////////////////////////////////////
 
     address public ATTACKER;
     address public USER1;
@@ -63,10 +108,13 @@ contract Boilerplate is Test {
     // Mainnet forked by anvil, this way we can reduce calls to Alchemy
     string internal localhost = vm.envString("LOCALHOST_RPC_URL");
 
+    // Initialize is used instead of setUp() to have additional setUp() available
+    // in each test contract that inherits from this one
     function initializeBoilerplate() public {
         makeAddr();
         vm.label(address(this), "Test contract");
         vm.createSelectFork(localhost);
+        console.log("[BOILERPLATE] Current fork: %s", localhost);
     }
 
     ////////////////////////////////////////////////////////////////////
@@ -92,22 +140,6 @@ contract Boilerplate is Test {
     //                           Utilities                            //
     ////////////////////////////////////////////////////////////////////
 
-    function suStart(address user) public {
-        vm.startPrank(user);
-        activePrank = true;
-    }
-
-    function suStop() public {
-        vm.stopPrank();
-        activePrank = false;
-    }
-
-    modifier asUser(address user) {
-        suStart(user);
-        _;
-        suStop();
-    }
-
     function makeAddr() public {
         ATTACKER = address(0x1337);
         vm.label(ATTACKER, "ATTACKER");
@@ -125,10 +157,5 @@ contract Boilerplate is Test {
         vm.label(USER4, "USER4");
         vm.label(address(nonfungiblePositionManager), "nonfungiblePositionManager");
         vm.label(address(DAI_USDC_pool), "DAI_USDC_pool");
-    }
-
-    function readSlot(address target, bytes4 selector) public returns (bytes32) {
-        uint256 slot = stdstore.target(target).sig(selector).find();
-        return vm.load(target, bytes32(slot));
     }
 }

@@ -5,61 +5,15 @@ pragma abicoder v2;
 import "../Boilerplate.sol";
 
 contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
-    using FixedPointMathLib for uint256;
-    using FixedPointMathLib for uint160;
-    using FixedPointMathLib for uint128;
-    using SafeCastLib for uint256;
-    using SafeCastLib for int256;
-    using SafeTransferLib for ERC20;
-    using SafeTransferLib for MockERC20;
-
-    /// @notice Represents the deposit of an NFT
-    struct Deposit {
-        address owner;
-        uint128 liquidity;
-        address token0;
-        address token1;
-    }
-
-    /// @dev deposits[tokenId] => Deposit
-    mapping(uint256 => Deposit) public deposits;
-
-    //////////////////////////////////////////////////////////////////
-    //                          VARIABLES
-    //////////////////////////////////////////////////////////////////
-    bHermes bHermesToken;
-
-    BaseV2Minter baseV2Minter;
-
-    FlywheelGaugeRewards flywheelGaugeRewards;
-    BribesFactory bribesFactory;
-
-    FlywheelBoosterGaugeWeight flywheelGaugeWeightBooster;
-
-    UniswapV3GaugeFactory uniswapV3GaugeFactory;
-    UniswapV3Gauge gauge;
-
-    // TODO Substitute this with HERMES?
-    HERMES rewardToken;
-
-    IUniswapV3Staker uniswapV3Staker;
-    UniswapV3Staker uniswapV3StakerContract;
-
-    IUniswapV3Staker.IncentiveKey key;
-    IUniswapV3Staker.IncentiveKey keyTest;
-    bytes32 incentiveId;
-
-    // Pool fee on arbitrum DAI/USDC pool is 0.01%
-    uint24 constant poolFee = 100;
-
-    //////////////////////////////////////////////////////////////////
-    //                          SET UP
-    //////////////////////////////////////////////////////////////////
-
     function setUp() public {
         initializeBoilerplate();
 
         rewardToken = new HERMES({_owner: ADMIN});
+
+        vm.startPrank(ADMIN);
+        rewardToken.mint(USER1, 1_000e18);
+        rewardToken.mint(USER2, 10_000e18);
+        vm.stopPrank();
 
         bHermesToken =
         new bHermes({ _hermes: rewardToken, _owner: ADMIN, _gaugeCycleLength: 1 weeks, _incrementFreezeWindow: 12 hours });
@@ -83,9 +37,12 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
             address(this)
         );
 
+        // Transfer Ownership of HERMES token to the baseV2Minter
+        vm.prank(ADMIN);
+        rewardToken.transferOwnership(address(baseV2Minter));
+
         flywheelGaugeRewards =
         new FlywheelGaugeRewards({_rewardToken: address(rewardToken), _owner:ADMIN, _gaugeToken:bHermesToken.gaugeWeight(),  _minter:baseV2Minter});
-        vm.label(address(flywheelGaugeRewards), "flywheelGaugeRewards");
 
         baseV2Minter.initialize(flywheelGaugeRewards);
 
@@ -99,20 +56,15 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
             // Owner
             ADMIN
         );
-        vm.label(address(uniswapV3GaugeFactory), "uniswapV3GaugeFactory");
 
-        // This is calling GaugeManager.addGauge(address), but why?
         vm.mockCall(address(0), abi.encodeWithSignature("addGauge(address)"), abi.encode(""));
 
         uniswapV3StakerContract = uniswapV3GaugeFactory.uniswapV3Staker();
 
         uniswapV3Staker = IUniswapV3Staker(address(uniswapV3StakerContract));
-        vm.label(address(uniswapV3Staker), "uniswapV3Staker");
-
 
         deal(address(DAI), USER1, 1_000_000e18);
         deal(address(USDC), USER1, 1_000_000e6);
-        deal(address(rewardToken), USER2, 1_000_000e18);
     }
 
     function testOpenUniPosition() public {
@@ -129,7 +81,9 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         (uint256 tokenId,,,) = mintNewPosition({amount0ToMint: 1_000e18, amount1ToMint: 1_000e6, _recipient: USER1});
         vm.stopPrank();
 
-        gauge = createGaugeAndAddToGaugeBoost({_pool: DAI_USDC_pool, minWidth: 50});
+        vm.startPrank(ADMIN);
+        gauge = createGaugeAndAddToGaugeBoost({_pool: DAI_USDC_pool, minWidth: 1});
+        vm.stopPrank();
 
         vm.startPrank(USER2, USER2);
         // Someone will create the incentive to draw the liquidity to his project (USER2)
@@ -142,11 +96,12 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
 
         vm.warp(key.startTime);
 
-        nonfungiblePositionManager.safeTransferFrom(address(this), address(uniswapV3Staker), tokenId);
+        vm.prank(USER1);
+        nonfungiblePositionManager.safeTransferFrom(USER1, address(uniswapV3Staker), tokenId);
 
         assertEq(nonfungiblePositionManager.ownerOf(tokenId), address(uniswapV3Staker));
         (address owner,,, uint256 stakedTimestamp) = uniswapV3Staker.deposits(tokenId);
-        assertEq(owner, address(this));
+        assertEq(owner, USER1);
         assertEq(stakedTimestamp, block.timestamp);
     }
 
@@ -196,21 +151,28 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         uniswapV3Staker.claimAllRewards(address(this));
     }
 
-    function testRestake() public {
+    function testRestake_SimpleRestake() public {
         //////////////// THIS IS THE SAME AS IN TESTSTAKE //////////////////////
         vm.startPrank(USER1);
         // User needs to have a UniV3 position for staking (ex. DAI/USDC)
         (uint256 tokenId,,,) = mintNewPosition({amount0ToMint: 1_000e18, amount1ToMint: 1_000e6, _recipient: USER1});
-        emit log_named_address("[TEST] Token owner: ", nonfungiblePositionManager.ownerOf(tokenId));
         vm.stopPrank();
 
+        vm.startPrank(ADMIN);
         gauge = createGaugeAndAddToGaugeBoost({_pool: DAI_USDC_pool, minWidth: 1});
+        vm.stopPrank();
+
+        vm.startPrank(USER1);
+        // User needs to deposit (burn) HERMES for bHermes to later claim weight
+        rewardToken.approve(address(bHermesToken), 1_000e18);
+        bHermesToken.deposit(1_000e18, USER1);
+        bHermesToken.claimMultiple(1_000e18);
+        bHermesToken.gaugeWeight().delegate(USER1);
+
+        bHermesToken.gaugeWeight().incrementGauge(address(gauge), 100e18);
+        vm.stopPrank();
 
         vm.startPrank(USER2);
-
-        emit log_named_uint("[TEST]: Computed start time (key): ", IncentiveTime.computeEnd(block.timestamp));
-        emit log_named_address("[TEST]: Pool address: ", address(DAI_USDC_pool));
-
         // Someone will create the incentive to draw the liquidity to his project (USER2)
         key = IUniswapV3Staker.IncentiveKey({pool: DAI_USDC_pool, startTime: IncentiveTime.computeEnd(block.timestamp)});
         rewardToken.approve(address(uniswapV3Staker), 10_000e18);
@@ -230,15 +192,21 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
 
         ////////////////////////////////////////////////////////////////////////
 
-        vm.warp(block.timestamp + 6 days);
+        vm.warp(block.timestamp + 7 days);
 
-        vm.prank(USER1);
+        // baseV2Minter.updatePeriod();
+        // flywheelGaugeRewards.getAccruedRewards();
+        gauge.newEpoch();
+
+        vm.warp(block.timestamp + 8 days);
+
+        vm.startPrank(USER1);
         uniswapV3Staker.restakeToken(tokenId);
+        vm.stopPrank();
 
         vm.prank(USER1);
         uniswapV3Staker.claimAllRewards(USER1);
 
-        vm.expectRevert();
         uniswapV3Staker.endIncentive(key);
     }
 
@@ -283,7 +251,7 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         vm.warp(block.timestamp + 8 days);
 
         vm.startPrank(USER2);
-        // It is not possible to restake if new incentive program has not been started. The calculated incentiveId, 
+        // It is not possible to restake if new incentive program has not been started. The calculated incentiveId,
         // will use the timestamp of the new period and it will be different. RestakeToken would fail with nonExistentIncentive
         key = IUniswapV3Staker.IncentiveKey({pool: DAI_USDC_pool, startTime: IncentiveTime.computeEnd(block.timestamp)});
         rewardToken.approve(address(uniswapV3Staker), 10_000e18);
@@ -307,15 +275,75 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
 
         vm.prank(USER1);
         uniswapV3Staker.claimAllRewards(USER1);
-    }    
+    }
 
     function testMinter_UpdatePeriodFasterThanExpected() public {
+        // For repeatability we are pinning it down to a specific timestamp
+        // anvil --fork-block-number 105191210
+        assertEq(block.timestamp, 1687805618);
+        emit log_named_uint("[INFO] Block timestamp at test start: ", block.timestamp);
+        emit log("[INFO] Mon, 26 Jun 2023 18:53:38 +0000");
+        emit log("");
+
         vm.startPrank(ADMIN);
         gauge = createGaugeAndAddToGaugeBoost({_pool: DAI_USDC_pool, minWidth: 1});
         vm.stopPrank();
 
-        vm.prank(ADMIN);
-        rewardToken.mint(USER1, 100_000e18);
+        vm.startPrank(USER1);
+        rewardToken.approve(address(bHermesToken), 10_000e18);
+        bHermesToken.deposit(10_000e18, USER1);
+        vm.stopPrank();
+
+        uint256 activePeriodBefore1 = baseV2Minter.activePeriod();
+        uint256 circulatingSupplyBefore1 = baseV2Minter.circulatingSupply();
+
+        emit log_named_uint("[INFO] Minter active period at test start: ", activePeriodBefore1);
+        emit log("[INFO] Thu, 22 Jun 2023 00:00:00 +0000");
+
+        // emit log_named_uint("[INFO] Minter HERMES circulating supply at test start: ", circulatingSupplyBefore1);
+
+        emit log("");
+        emit log("[STATUS] Calling update period immediately after initialization...");
+        baseV2Minter.updatePeriod();
+        emit log("");
+
+        uint256 activePeriodAfter1 = baseV2Minter.activePeriod();
+        uint256 circulatingSupplyAfter1 = baseV2Minter.circulatingSupply();
+
+        emit log_named_uint("[INFO] Minter active period after updating period: ", activePeriodAfter1);
+        emit log("[INFO] Thu, 22 Jun 2023 00:00:00 +0000");
+        // emit log_named_uint("[INFO] Minter HERMES circulating supply after updating period: ", circulatingSupplyAfter1);
+        console.log("[TEST] Is period before == period after? ", activePeriodBefore1 == activePeriodAfter1);
+
+        // Calling update period before 7 days have passed should have no effect
+        assertEq(activePeriodBefore1, activePeriodAfter1);
+        assertEq(circulatingSupplyBefore1, circulatingSupplyAfter1);
+
+        emit log("");
+        emit log("[STATUS] WARPING 2 days into the future...");
+        emit log("[INFO] Time now: Wed, 28 Jun 2023 18:53:38 +0000");
+        // emit log_named_uint("NOW + 2 days", block.timestamp + 2 days);
+        vm.warp(block.timestamp + 2 days);
+
+        uint256 activePeriodBefore2 = baseV2Minter.activePeriod();
+        uint256 circulatingSupplyBefore2 = baseV2Minter.circulatingSupply();
+
+        baseV2Minter.updatePeriod();
+
+        uint256 activePeriodAfter2 = baseV2Minter.activePeriod();
+        uint256 circulatingSupplyAfter2 = baseV2Minter.circulatingSupply();
+
+        console.log("[TEST] Is period2 before == period2 after? ", activePeriodBefore2 == activePeriodAfter2);
+        assertEq(activePeriodBefore2, activePeriodAfter2);
+        assertEq(circulatingSupplyBefore2, circulatingSupplyAfter2);
+    }
+
+    function testMinter_NewEpoch() public {
+        vm.startPrank(ADMIN);
+        gauge = createGaugeAndAddToGaugeBoost({_pool: DAI_USDC_pool, minWidth: 1});
+        vm.stopPrank();
+
+        // rewardToken.mint(USER1, 100_000e18);
         // deal(address(rewardToken), USER1, 100_000e18);
         vm.startPrank(USER1);
         rewardToken.approve(address(bHermesToken), 10_000e18);
@@ -347,8 +375,8 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         uint256 circulatingSupplyBefore2 = baseV2Minter.circulatingSupply();
 
         vm.startPrank(USER2, USER2);
-        // gauge.newEpoch();
-        baseV2Minter.updatePeriod();
+        gauge.newEpoch();
+        // baseV2Minter.updatePeriod();
         vm.stopPrank();
 
         uint256 activePeriodAfter2 = baseV2Minter.activePeriod();
@@ -433,6 +461,9 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         uniswapV3GaugeFactory.createGauge(address(_pool), abi.encode(uint24(minWidth)));
         _gauge = UniswapV3Gauge(address(uniswapV3GaugeFactory.strategyGauges(address(_pool))));
         bHermesToken.gaugeBoost().addGauge(address(_gauge));
+        bHermesToken.gaugeWeight().addGauge(address(_gauge));
+        bHermesToken.gaugeWeight().setMaxGauges(1);
+        bHermesToken.gaugeWeight().setMaxDelegates(1);
     }
 
     // Create a Uniswap V3 Staker incentive
