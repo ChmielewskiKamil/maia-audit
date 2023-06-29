@@ -204,8 +204,8 @@ interface IUniswapV3Staker is IERC721Receiver {
     /// @return reward The amount of reward tokens claimed
     function claimReward(address to, uint256 amountRequested) external returns (uint256 reward);
 
-    /* @audit-issue Incorrect notice comment, it transfers all rewards. */
-    /* @audit-issue Add information for users that unstakeToken should be called before this function. */
+    /* @audit-confirmed NON-CRIT Incorrect notice comment, it transfers all rewards. */
+    /* @audit-confirmed Add information for users that unstakeToken should be called before this function, to trigger the state update */
     /// @notice Transfers `amountRequested` of accrued `rewardToken` rewards from the contract to the recipient `to`
     /// @param to The address where claimed rewards will be sent to
     /// @return reward The amount of reward tokens claimed
@@ -238,7 +238,10 @@ interface IUniswapV3Staker is IERC721Receiver {
     //////////////////////////////////////////////////////////////*/
 
     /* @audit-confirmed restakeToken() function is missing in the interface although it is defined
-    * as external in the Staker contract. 
+    * as external in the Staker contract.
+    *
+    * Improve the test coverage on restakeToken function as it is not tested as of now. 
+    *
     * THIS ONE IS ADDED BY ME*/
     function restakeToken(uint256 tokenId) external;
 

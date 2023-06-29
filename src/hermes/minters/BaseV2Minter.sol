@@ -89,7 +89,7 @@ contract BaseV2Minter is Ownable, IBaseV2Minter, Test {
         if (initializer != msg.sender) revert NotInitializer();
         flywheelGaugeRewards = _flywheelGaugeRewards;
         initializer = address(0);
-        /* @audit-issue Division before multiplication? Is this on purpose?
+        /* @audit-ok Division before multiplication? Is this on purpose?
         * Due to the rounding down the activePeriod will be shifted by 5 days back from the current date.
         *
         * @TODO Investigate where this is used, is there comparison between the current 
@@ -124,12 +124,7 @@ contract BaseV2Minter is Ownable, IBaseV2Minter, Test {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IBaseV2Minter
-    function circulatingSupply() public /* view */ returns (uint256) {
-        emit log("");
-        emit log("==== BaseV2Minter.circulatingSupply() ====");
-        emit log_named_uint("[INFO] HERMES total supply: ", HERMES(underlying).totalSupply());
-        emit log_named_uint("[INFO] HERMES vault total assets: ", vault.totalAssets());
-        emit log("---- circulatingSupply END ----");
+    function circulatingSupply() public  view  returns (uint256) {
         return HERMES(underlying).totalSupply() - vault.totalAssets();
     }
 
@@ -158,8 +153,9 @@ contract BaseV2Minter is Ownable, IBaseV2Minter, Test {
         return (vault.totalAssets() * _minted) / HERMES(underlying).totalSupply();
     }
 
-    /* @audit-issue Is this function supposed to be permissionless? 
-    * It will revert with unauthorized() because only Admin can mint new HERMES */
+    /* @audit-ok Is this function supposed to be permissionless? 
+    * It will revert with unauthorized() because only Admin can mint new HERMES 
+    * The admin (owner) of HERMES is the BaseV2Minter, he is the one calling here. */
     /// @inheritdoc IBaseV2Minter
     function updatePeriod() public returns (uint256) {
         emit log("");
@@ -171,10 +167,14 @@ contract BaseV2Minter is Ownable, IBaseV2Minter, Test {
         * Nothing happens */
         /* @audit Where is this function used */
         // only trigger if new week
-        /* @audit-issue Because the activePeriod is shifted by 5 days, this can be updated 
-        * faster than expected */
+        /* @audit-ok Because the activePeriod is shifted by 5 days, this can be updated 
+        * faster than expected.
+        * This is not an issue the shift is expected. No matter when you start the first period, it will be set to thurdsday 00:00
+        * Every next period will follow this cycle. */
         if (block.timestamp >= _period + week && initializer == address(0)) {
-            /* @audit-issue The calculation below causes precision loss.
+            emit log("[ERROR] This shouldn't be hit this soon!");
+            console.log("It was hit because block.timestamp %s >= _period %s + week %s", block.timestamp, _period, week);
+            /* @audit-ok The calculation below causes precision loss.
             * The calculated period + week will be equal to 4202150400 
             * When multiplied first and then divided the result is: 4202651988
             * The first unix time is: Thu Mar 01 2103 00:00:00 GMT+0000
@@ -182,7 +182,9 @@ contract BaseV2Minter is Ownable, IBaseV2Minter, Test {
             *
             * This one will shift by another 5 days, but can be only called after 7 days.
             * The whole updating schedule will be shifted. After initialisation the update schedule
-            * can be called 2 days sooner than expected. */
+            * can be called 2 days sooner than expected. 
+            *
+            * THIS IS OK, I guess this is how it is supposed to work. */
             emit log_named_uint("[INFO] Current period: ", _period);
             _period = (block.timestamp / week) * week;
             emit log_named_uint("[CALC] New period: ", _period);
@@ -212,10 +214,10 @@ contract BaseV2Minter is Ownable, IBaseV2Minter, Test {
             
             /* @info HERE IS THE MINT*/
             if (_balanceOf < _required) {
-                emit log_named_address("[INFO] Address trying to mint: ", msg.sender);
-                emit log_named_address("[INFO] Hermes onlyOwner: ", address(HERMES(underlying).owner()));
-                // vm.prank(address(0xCAFE));
+                emit log_named_address("[INFO] Address trying to mint: ", address(this));
+                // emit log_named_address("[INFO] Hermes onlyOwner: ", address(HERMES(underlying).owner()));
                 HERMES(underlying).mint(address(this), _required - _balanceOf);
+                emit log("[STATUS] Succesful mint");
             }
 
             underlying.safeTransfer(address(vault), _growth);
@@ -228,7 +230,10 @@ contract BaseV2Minter is Ownable, IBaseV2Minter, Test {
             /// @dev queue rewards for the cycle, anyone can call if fails
             ///      queueRewardsForCycle will call this function but won't enter
             ///      here because activePeriod was updated
-            try flywheelGaugeRewards.queueRewardsForCycle() {} catch {}
+            emit log("[STATUS] Trying to call flywheelGaugeRewards.queueRewardsForCycle()");
+            try flywheelGaugeRewards.queueRewardsForCycle() { emit log("[SUCCESS] flywheelGaugeRewards.queueRewardsForCycle() succeeded");} catch {
+                emit log("[ERROR] flywheelGaugeRewards.queueRewardsForCycle() failed");
+            }
         }
         emit log("---- updatePeriod END ----");
         return _period;
@@ -238,7 +243,8 @@ contract BaseV2Minter is Ownable, IBaseV2Minter, Test {
                          REWARDS STREAM LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    /* @audit-issue Misleading function name, Getter performs transfer */
+    /* @audit-confirmed NON-CRITICAL Misleading function name, Getter performs transfer
+    * Usually functions starting with get are getters (view functions) that read a variable. */
     /// @inheritdoc IBaseV2Minter
     function getRewards() external returns (uint256 totalQueuedForCycle) {
         if (address(flywheelGaugeRewards) != msg.sender) revert NotFlywheelGaugeRewards();

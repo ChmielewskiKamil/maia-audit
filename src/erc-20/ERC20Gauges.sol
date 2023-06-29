@@ -68,6 +68,10 @@ abstract contract ERC20Gauges is ERC20MultiVotes, ReentrancyGuard, IERC20Gauges 
     // @TODO check if there is delete _userGauges[address] in the code. It won't work
     mapping(address => EnumerableSet.AddressSet) internal _userGauges;
 
+    /* @audit-issue What writes to _gauges? 
+    * Only the internal _addGauge function which is called by: addGauge() and replaceGauge */
+    /* @audit This is read by:
+    * - FlywheelGaugeRewards#queueRewardsForCycle to iterate over to _queueRewards for each gauge */
     EnumerableSet.AddressSet internal _gauges;
 
     // Store deprecated gauges in case a user needs to free dead weight
@@ -267,17 +271,17 @@ abstract contract ERC20Gauges is ERC20MultiVotes, ReentrancyGuard, IERC20Gauges 
         _writeGaugeWeight(_totalWeight, _add112, weight, cycle);
     }
 
-    /* @audit What if I pass duplicate elements to an array? 
+    /* @audit-issue What if I pass duplicate elements to an array? 
         * It just updates the vault twice */
-    /* @audit What if I pass an empty array? */
-    /* @audit What if I pass the default values in the array? */
+    /* @audit-issue What if I pass an empty array? */
+    /* @audit-issue What if I pass the default values in the array? */
     /// @inheritdoc IERC20Gauges
     function incrementGauges(address[] calldata gaugeList, uint112[] calldata weights)
         external
         nonReentrant
         returns (uint256 newUserWeight)
     {
-        /* @audit-issue This could be probably smaller because such a big list would revert out of gas anyway */
+        /* @audit-ok This could be probably smaller because such a big list would revert out of gas anyway */
         uint256 size = gaugeList.length;
         if (weights.length != size) revert SizeMismatchError();
 
@@ -299,6 +303,7 @@ abstract contract ERC20Gauges is ERC20MultiVotes, ReentrancyGuard, IERC20Gauges 
                 i++;
             }
         }
+        /* @audit This writes to the global weights */
         return _incrementUserAndGlobalWeights(msg.sender, weightsSum, currentCycle);
     }
 
@@ -388,6 +393,7 @@ abstract contract ERC20Gauges is ERC20MultiVotes, ReentrancyGuard, IERC20Gauges 
         return _decrementUserWeights(msg.sender, weightsSum);
     }
 
+    /* @audit How is that duality of global vs gauge specific weight achieved? */
     /**
      * @dev this function is the key to the entire contract.
      *  The storage weight it operates on is either a global or gauge-specific weight.

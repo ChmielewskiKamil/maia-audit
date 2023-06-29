@@ -128,6 +128,7 @@ abstract contract ERC4626DepositOnly is ERC20, IERC4626DepositOnly {
                           INTERNAL HOOKS LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    /* @audit-issue [QA-001] This function is not overriden anywhere and is used only in tests */
+    /* @audit-ok This function is not overriden anywhere and is used only in tests
+    * THis might be the thing that is getting overriden in Talos */
     function afterDeposit(uint256 assets, uint256 shares) internal virtual {}
 }

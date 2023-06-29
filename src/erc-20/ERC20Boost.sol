@@ -85,7 +85,8 @@ abstract contract ERC20Boost is ERC20, Ownable, IERC20Boost {
     }
 
     /* @audit This is the remaining Hermes tokens or bHermes tokens? 
-    * Hypothesis: It's bHermes */
+    * Hypothesis: It's bHermes?
+    * I think its actually ERC20Boost tokens */
     /// @inheritdoc IERC20Boost
     function freeGaugeBoost(address user) public view returns (uint256) {
         return balanceOf[user] - getUserBoost[user];
@@ -233,11 +234,14 @@ abstract contract ERC20Boost is ERC20, Ownable, IERC20Boost {
     /// @inheritdoc IERC20Boost
     function decrementGaugeBoost(address gauge, uint256 boost) public {
         GaugeState storage gaugeState = getUserGaugeBoost[msg.sender][gauge];
-        /* @audit-issue This should probably handle also the deprecated gauges,
-        * just like the functions below 
-        * if (deprecated.contains || boost >= gaugeState)*/
+        /* @audit-confirmed This should probably handle also the deprecated gauges,
+        * just like the functions below decrementGaugesBoostIndexed
+        * if (deprecated.contains || boost >= gaugeState) 
+        *
+        * See the decrementGaugesBoostIndexed function for the issue reference 
+        * They should function the same, so that users are not confused. */
         if (boost >= gaugeState.userGaugeBoost) {
-            /* @audit-issue Return value of remove is unchecked, event will be emitted nonetheless */
+            /* @audit-confirmed NON-CRIT Return value of remove is unchecked, event will be emitted nonetheless */
             _userGauges[msg.sender].remove(gauge);
             delete getUserGaugeBoost[msg.sender][gauge];
 
@@ -272,8 +276,13 @@ abstract contract ERC20Boost is ERC20, Ownable, IERC20Boost {
 
             GaugeState storage gaugeState = getUserGaugeBoost[msg.sender][gauge];
 
-            /* @audit What's special about this function that they are checking for deprecated gauges here
-            * In the decrementGaugeBoost it was not checked. */
+            /* @audit-confirmed What's special about this function that they are checking for deprecated gauges here
+            * In the decrementGaugeBoost it was not checked. 
+            *
+            * Either remove the deprecated gauges check here, or add it to the decrementGaugeBoost function, 
+            * so that user experience is the same in both functions. The question is: Should the functionality to
+            * decrement gauges remove the boost from the deprecated gauges in it's entirety 
+            * or just the amount specified. */
             if (_deprecatedGauges.contains(gauge) || boost >= gaugeState.userGaugeBoost) {
                 require(_userGauges[msg.sender].remove(gauge)); // Remove from set. Should never fail.
                 delete getUserGaugeBoost[msg.sender][gauge];
@@ -311,6 +320,7 @@ abstract contract ERC20Boost is ERC20, Ownable, IERC20Boost {
             }
         }
 
+        /* @audit What is the diff between getUserBoost and getUserGaugeBoost */
         /* @audit-issue Shouldn't all of the functions update the getUserBoost at the end?
         * getUserBoost is used throughout this contract. And in the notAttached modifier which 
         * is used for transfers and burns.
@@ -361,8 +371,11 @@ abstract contract ERC20Boost is ERC20, Ownable, IERC20Boost {
     }
 
     function _removeGauge(address gauge) internal {
-        /* @audit-issue Comment is incorrect:
-        * it should fail loud if it is already deprecated */
+        /* @audit-confirmed Comment is incorrect:
+        * it should fail loud if it is already deprecated 
+        * add will return false when: 
+            * gauge was already present in deprecated 
+        * if will revert when this happens */
         // add to deprecated and fail loud if not present
         if (!_deprecatedGauges.add(gauge)) revert InvalidGauge();
 

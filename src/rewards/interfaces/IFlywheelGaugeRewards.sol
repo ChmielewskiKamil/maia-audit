@@ -78,9 +78,11 @@ interface IFlywheelGaugeRewards {
      */
     function queueRewardsForCycle() external returns (uint256 totalQueuedForCycle);
 
-    /* @audit-issue 
+    /* @audit-confirmed NON-CRITICAL
     * - Missing natspec for parameter
     * - The notice is the same as for the function above */
+    /* @audit-confirmed NON-CRIT Incorrect comment
+    * It suggests that the function is the same (almost the same) while the innerworkings are different. */
     /// @notice Iterates over all live gauges and queues up the rewards for the cycle
     function queueRewardsForCyclePaginated(uint256 numRewards) external;
 
@@ -88,7 +90,7 @@ interface IFlywheelGaugeRewards {
                         FLYWHEEL CORE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /* @audit How can it transfer something to an abstract contract (Core)? 
+    /* @audit-ok How can it transfer something to an abstract contract (Core)? 
     * There is actually a `FlywheelCore` contract which inherits from
     * an abstract contract with the same name `FlywheelCore` */
     /**

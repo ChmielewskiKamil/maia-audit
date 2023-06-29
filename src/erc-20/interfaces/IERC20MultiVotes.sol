@@ -88,7 +88,8 @@ interface IERC20MultiVotes {
      */
     function setContractExceedMaxDelegates(address account, bool canExceedMax) external;
 
-    /* @audit-issue NonCritical Why is this in the Admin Operations category? */
+    /* @audit-confirmed NON-CRIT Why is this in the Admin Operations category? 
+    * This should be moved to the delegation logic category below */
     /**
      * @notice mapping from a delegator to the total number of delegated votes.
      */

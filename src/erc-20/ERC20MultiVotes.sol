@@ -43,7 +43,8 @@ abstract contract ERC20MultiVotes is ERC20, Ownable, IERC20MultiVotes {
         return balanceOf[account] - userDelegatedVotes[account];
     }
 
-    /* @audit-issue This function returns uint256 but Votes are held as uint224 */
+    /* @audit-ok This function returns uint256 but Votes are held as uint224 
+    * Returning smaller as larger type is not risky */
     /// @inheritdoc IERC20MultiVotes
     function getVotes(address account) public view virtual returns (uint256) {
         /* @audit-ok WTF is pos?
@@ -54,7 +55,8 @@ abstract contract ERC20MultiVotes is ERC20, Ownable, IERC20MultiVotes {
         return pos == 0 ? 0 : _checkpoints[account][pos - 1].votes;
     }
 
-    /* @audit-issue This function is useless, it does the exact same thing as getVotes with 1 level of indirection */
+    /* @audit-ok This function is useless, it does the exact same thing as getVotes with 1 level of indirection.
+    * INCORRECT, it is overriden in ERC20 Gauges to get the unused votes. */
     /// @inheritdoc IERC20MultiVotes
     function userUnusedVotes(address user) public view virtual returns (uint256) {
         return getVotes(user);
@@ -174,7 +176,7 @@ abstract contract ERC20MultiVotes is ERC20, Ownable, IERC20MultiVotes {
     function _delegate(address delegator, address newDelegatee) internal virtual {
         uint256 count = delegateCount(delegator);
 
-        /* @audit Why does it revert, it means that you can have only 1 delegatee? */
+        /* @audit-ok Why does it revert, it means that you can have only 1 delegatee? Yes thats the assumption. */
         // undefined behavior for delegateCount > 1
         if (count > 1) revert DelegationError();
 
@@ -186,11 +188,11 @@ abstract contract ERC20MultiVotes is ERC20, Ownable, IERC20MultiVotes {
         }
 
         // redelegate only if newDelegatee is not empty
-        /* @audit-issue Change if to require, unless delegation to 0 is a feature */
+        /* @audit-ok Change if to require, unless delegation to 0 is a feature */
         if (newDelegatee != address(0)) {
             _incrementDelegation(delegator, newDelegatee, freeVotes(delegator));
         }
-        /* @audit-issue (Followup) This event will be emited if the newDelegate is addr 0, 
+        /* @audit-ok (Followup) This event will be emited if the newDelegate is addr 0, 
         * This is only here for backwards compatibility with OZ tho */
         emit DelegateChanged(delegator, oldDelegatee, newDelegatee);
     }
@@ -235,7 +237,8 @@ abstract contract ERC20MultiVotes is ERC20, Ownable, IERC20MultiVotes {
          *         If delegatee does not have any free votes and doesn't change their vote delegator won't be able to undelegate.
          *         If it is a contract, a possible safety measure is to have an emergency clear votes.
          */
-        /* @audit-issue This function is useless as it calls getVOtes under the hood. Is it an issue? */
+        /* @audit-ok This function is useless as it calls getVOtes under the hood. Is it an issue? 
+        * It calls the userUnusedVotes override on ERC20Gauges which returns the unused gauges */
         if (userUnusedVotes(delegatee) < amount) revert UndelegationVoteError();
 
         uint256 newDelegates = _delegatesVotesCount[delegator][delegatee] - amount;
@@ -247,7 +250,8 @@ abstract contract ERC20MultiVotes is ERC20, Ownable, IERC20MultiVotes {
         _delegatesVotesCount[delegator][delegatee] = newDelegates;
         userDelegatedVotes[delegator] -= amount;
 
-        /* @audit-issue Why does it emit the vent before modifying state */
+        /* @audit-ok Why does it emit the vent before modifying state
+        * There is only math later and no checks, so I think it is safe. */
         emit Undelegation(delegator, delegatee, amount);
         _writeCheckpoint(delegatee, _subtract, amount);
     }
@@ -268,6 +272,7 @@ abstract contract ERC20MultiVotes is ERC20, Ownable, IERC20MultiVotes {
         uint256 oldWeight = pos == 0 ? 0 : ckpts[pos - 1].votes;
         uint256 newWeight = op(oldWeight, delta);
 
+        /* @audit Is this for the case where checkpoints where written to twice in one block? */
         if (pos > 0 && ckpts[pos - 1].fromBlock == block.number) {
             /* @audit-ok There is no check if the newWeight can fit into uint224 
             * Solady will revert, its safe cast lib that reverts ono overflow */

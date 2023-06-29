@@ -151,9 +151,13 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
 
     /// @inheritdoc IUniswapV3Staker
     function createIncentiveFromGauge(uint256 reward) external {
+        emit log("");
+        emit log("==== UniswapV3Staker.createIncentiveFromGauge ====");
         if (reward <= 0) revert IncentiveRewardMustBePositive();
 
-        /* @audit-issue Shouldn't this use computeStart? This is fcked for sure. */
+        /* @audit-ok Shouldn't this use computeStart? This is fcked for sure. 
+        * It is okay, when creating incentive from the gauge the start time of the next incentive
+        * is the end time of the previous one. */
         uint96 startTime = IncentiveTime.computeEnd(block.timestamp);
 
         /* @audit-ok Who is supposed to be msg.sender for this function? 
@@ -178,6 +182,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
         hermes.safeTransferFrom(msg.sender, address(this), reward);
 
         emit IncentiveCreated(pool, startTime, reward);
+        emit log("---- createIncentiveFromGauge END ----");
     }
 
     /* @audit-ok How do you get an incentive key?
@@ -277,9 +282,47 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
         returns (bytes4)
     {
         emit log("==== UniV3Staker.onERC721Received ====");
-        /* @audit-issue GAS? Why is this assigning it to a local variable instead of using address(nonfungiblePositionManager)? 
+        /* @audit-confirmed GAS not caught by the bot
+        * Why is this assigning it to a local variable instead of using address(nonfungiblePositionManager)? 
         * Probably a gas optimization to reduce storage loads 
-        * Why using it later directly then? */
+        * Why using it later directly then? 
+        *
+        * Removing local variable and using the nonfungiblePositionManager directly saves 5 gas on each deposit
+        * Version 2 is the cheapest
+        
+        1. This is the current version
+| src/uni-v3-staker/UniswapV3Staker.sol:UniswapV3Staker contract |                 |        |        |        |         |
+|----------------------------------------------------------------|-----------------|--------|--------|--------|---------|
+| Deployment Cost                                                | Deployment Size |        |        |        |         |
+| 4564115                                                        | 23398           |        |        |        |         |
+| Function Name                                                  | min             | avg    | median | max    | # calls |
+| createIncentive                                                | 54228           | 54228  | 54228  | 54228  | 1       |
+| deposits                                                       | 698             | 698    | 698    | 698    | 1       |
+| onERC721Received                                               | 235867          | 235867 | 235867 | 235867 | 1       |
+| updateGauges                                                   | 97735           | 97735  | 97735  | 97735  | 1       |
+
+        2. This is the simplified version with no local variable
+| src/uni-v3-staker/UniswapV3Staker.sol:UniswapV3Staker contract |                 |        |        |        |         |
+|----------------------------------------------------------------|-----------------|--------|--------|--------|---------|
+| Deployment Cost                                                | Deployment Size |        |        |        |         |
+| 4563715                                                        | 23396           |        |        |        |         |
+| Function Name                                                  | min             | avg    | median | max    | # calls |
+| createIncentive                                                | 54228           | 54228  | 54228  | 54228  | 1       |
+| deposits                                                       | 698             | 698    | 698    | 698    | 1       |
+| onERC721Received                                               | 235862          | 235862 | 235862 | 235862 | 1       |
+| updateGauges                                                   | 97735           | 97735  | 97735  | 97735  | 1       |
+
+        3. This is the version where local variable is used in both places
+| src/uni-v3-staker/UniswapV3Staker.sol:UniswapV3Staker contract |                 |        |        |        |         |
+|----------------------------------------------------------------|-----------------|--------|--------|--------|---------|
+| Deployment Cost                                                | Deployment Size |        |        |        |         |
+| 4557691                                                        | 23359           |        |        |        |         |
+| Function Name                                                  | min             | avg    | median | max    | # calls |
+| createIncentive                                                | 54228           | 54228  | 54228  | 54228  | 1       |
+| deposits                                                       | 698             | 698    | 698    | 698    | 1       |
+| onERC721Received                                               | 235867          | 235867 | 235867 | 235867 | 1       |
+| updateGauges                                                   | 97735           | 97735  | 97735  | 97735  | 1       |
+*/
         INonfungiblePositionManager _nonfungiblePositionManager = nonfungiblePositionManager;
         if (msg.sender != address(_nonfungiblePositionManager)) revert TokenNotUniswapV3NFT();
 
@@ -438,7 +481,9 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
         emit log("==== UniswapV3Staker.restakeToken ====");
         IncentiveKey storage incentiveId = stakedIncentiveKey[tokenId];
         /* @audit-confirmed Shouldn't the flag isNotRestake be false here? 
-        * This flag should be false, so that anyone can restake. See testRestake_AnyoneCanRestakeAfterIncentiveEnds test */
+        * This flag should be false, so that anyone can restake. See testRestake_AnyoneCanRestakeAfterIncentiveEnds test 
+        * 
+        * To remove the overhead rename the flag to isRestake and change the logic in _unstake accordingly. */
         if (incentiveId.startTime != 0) _unstakeToken(incentiveId, tokenId, true);
 
         (IUniswapV3Pool pool, int24 tickLower, int24 tickUpper, uint128 liquidity) =
@@ -484,8 +529,13 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
 
         address owner = deposit.owner;
 
-        /* @audit-issue Is it really possible for anyone to restake? The isNotRestake is always hardcoded as true. */
-        /* @audit-issue Is this check correct? Timestamp < endTime */
+        /* @audit-confirmed Is it really possible for anyone to restake? The isNotRestake is always hardcoded as true.
+         * Remember that for this PoC it is necessary to add restakeToken to the interface as it is missing. 
+         *
+         * See function restakeToken as issue reference 
+         */
+        /* @audit-ok Is this check correct? Timestamp < endTime 
+        * Yes, it is correct. NotOwner should not restake before the end time. */
         /* @audit Check default value of isNotRestake && does isNotRestake is true when is not restaken? */
         // anyone can call restakeToken if the block time is after the end time of the incentive
         if ((isNotRestake || block.timestamp < endTime) && owner != msg.sender) revert NotCalledByOwner();
@@ -683,10 +733,11 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
                         GAUGE UPDATE LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    /* @audit-issue Why is this not access control protected? */
+    /* @audit-ok Why is this not access control protected? */
     /// @inheritdoc IUniswapV3Staker
     function updateGauges(IUniswapV3Pool uniswapV3Pool) external {
-        /* @audit-issue001 Why is the address of univ3Pool passed as strategyGauges? */
+        /* @audit-ok Why is the address of univ3Pool passed as strategyGauges? 
+        * The pool is a strategy */
         address uniswapV3Gauge = address(uniswapV3GaugeFactory.strategyGauges(address(uniswapV3Pool)));
 
         if (uniswapV3Gauge == address(0)) revert InvalidGauge();
