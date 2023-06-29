@@ -15,6 +15,7 @@ contract ERC20BoostTest is DSTestPlus {
     MockERC20Boost token;
     address gauge1;
     address gauge2;
+    address gauge3;
 
     function setUp() public {
         token = new MockERC20Boost(); // 1 hour cycles, 10 minute freeze
@@ -314,6 +315,40 @@ contract ERC20BoostTest is DSTestPlus {
         require(userGaugeBoost == 100 ether, "userBoost not updated");
         require(token.getUserBoost(address(1)) == 0, "userBoost not updated");
     }
+
+    // AUDIT //
+    function testAudit_DecrementGaugeBoostDeprecatedGague() public {
+        testAttach();
+        token.removeGauge(gauge1);
+        (uint128 previousUserBoost,) = token.getUserGaugeBoost(address(1), gauge1);
+        assertEq(previousUserBoost, 100 ether);
+        hevm.prank(address(1));
+        token.decrementGaugeBoost(gauge1, 10 ether);
+        (uint128 newUserBoost,) = token.getUserGaugeBoost(address(1), gauge1);
+        require(newUserBoost == 90 ether, "userBoost not updated");
+        require(token.getUserBoost(address(1)) == 100 ether, "total userBoost doesn't match");
+    }
+
+    function testAudit_DecrementGaugeBoostDeprecatedGagueMoreThanAttached() public {
+        testAttach();
+        token.removeGauge(gauge1);
+        hevm.prank(address(1));
+        token.decrementGaugeBoost(gauge1, 110 ether);
+        (uint128 newUserBoost,) = token.getUserGaugeBoost(address(1), gauge1);
+        require(newUserBoost == 0 ether, "userBoost not updated");
+        require(token.getUserBoost(address(1)) == 100 ether, "total userBoost doesn't match");
+    }
+
+    function testAudit_DecrementGaugeBoostNonExistentGauge() public {
+        testAttach();
+        token.removeGauge(gauge1);
+        hevm.prank(address(1));
+        token.decrementGaugeBoost(gauge3, 10 ether);
+        (uint128 newUserBoost,) = token.getUserGaugeBoost(address(1), gauge3);
+        require(newUserBoost == 0 ether, "userBoost not updated");
+        require(token.getUserBoost(address(1)) == 100 ether, "total userBoost doesn't match");
+    }
+    // AUDIT //
 
     function testDecrementGaugeBoost() public {
         testAttach();
