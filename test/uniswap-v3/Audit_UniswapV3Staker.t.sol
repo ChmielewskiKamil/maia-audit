@@ -8,6 +8,9 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
     function setUp() public {
         initializeBoilerplate();
 
+        // In HERMES deployment the owner will be set to BaseV2Minter
+        // In this test ADMIN is set as a temporary owner just to mint
+        // initial tokens to get the reward system rolling.
         rewardToken = new HERMES({_owner: ADMIN});
 
         vm.startPrank(ADMIN);
@@ -21,11 +24,10 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         flywheelGaugeWeightBooster = new FlywheelBoosterGaugeWeight({ _bHermesGauges: bHermesToken.gaugeWeight() });
 
         bribesFactory = new BribesFactory(
-            // This contract acts as a manager?
             BaseV2GaugeManager(address(this)),
             flywheelGaugeWeightBooster,
             1 weeks,
-            address(this)
+            ADMIN
         );
 
         baseV2Minter = new BaseV2Minter(
@@ -34,10 +36,10 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
             // Dao
             address(flywheelGaugeRewards),
             // Owner
-            address(this)
+            ADMIN
         );
 
-        // Transfer Ownership of HERMES token to the baseV2Minter
+        // Ownership is transferred to the BaseV2Minter to mimic the real deployment
         vm.prank(ADMIN);
         rewardToken.transferOwnership(address(baseV2Minter));
 
@@ -169,6 +171,7 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         bHermesToken.claimMultiple(1_000e18);
         bHermesToken.gaugeWeight().delegate(USER1);
 
+        // Allocate claimed weight to the gauge, so that rewards are distributed to the gauge
         bHermesToken.gaugeWeight().incrementGauge(address(gauge), 100e18);
         vm.stopPrank();
 
@@ -192,13 +195,9 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
 
         ////////////////////////////////////////////////////////////////////////
 
-        vm.warp(block.timestamp + 7 days);
-
-        // baseV2Minter.updatePeriod();
-        // flywheelGaugeRewards.getAccruedRewards();
         gauge.newEpoch();
 
-        vm.warp(block.timestamp + 8 days);
+        vm.warp(block.timestamp + 7 days);
 
         vm.startPrank(USER1);
         uniswapV3Staker.restakeToken(tokenId);
@@ -206,8 +205,7 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
 
         vm.prank(USER1);
         uniswapV3Staker.claimAllRewards(USER1);
-
-        uniswapV3Staker.endIncentive(key);
+        // uniswapV3Staker.endIncentive(key);
     }
 
     // Confirmed Finding
@@ -385,8 +383,76 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         assertNotEq(activePeriodBefore2, activePeriodAfter2);
         assertNotEq(circulatingSupplyBefore2, circulatingSupplyAfter2);
     }
+function testRewards_DOSWithPaginatedQueue() public {
+        //////////////// THIS IS THE SAME AS IN TESTSTAKE //////////////////////
+        vm.startPrank(USER1);
+        // User needs to have a UniV3 position for staking (ex. DAI/USDC)
+        (uint256 tokenId,,,) = mintNewPosition({amount0ToMint: 1_000e18, amount1ToMint: 1_000e6, _recipient: USER1});
+        vm.stopPrank();
 
-    function testShouldNotWithdrawForSomeoneElse() public {}
+        vm.startPrank(ADMIN);
+        gauge = createGaugeAndAddToGaugeBoost({_pool: DAI_USDC_pool, minWidth: 1});
+        gauge2 = createGaugeAndAddToGaugeBoost({_pool: mockPool2, minWidth: 1});
+        gauge3 = createGaugeAndAddToGaugeBoost({_pool: mockPool3, minWidth: 1});
+        gauge4 = createGaugeAndAddToGaugeBoost({_pool: mockPool4, minWidth: 1});
+        vm.stopPrank();
+
+        vm.startPrank(USER1);
+        // User needs to deposit (burn) HERMES for bHermes to later claim weight
+        rewardToken.approve(address(bHermesToken), 1_000e18);
+        bHermesToken.deposit(1_000e18, USER1);
+        bHermesToken.claimMultiple(1_000e18);
+        bHermesToken.gaugeWeight().delegate(USER1);
+
+        // Allocate claimed weight to the gauge, so that rewards are distributed to the gauge
+        bHermesToken.gaugeWeight().incrementGauge(address(gauge), 10e18);
+        bHermesToken.gaugeWeight().incrementGauge(address(gauge2), 20e18);
+        bHermesToken.gaugeWeight().incrementGauge(address(gauge3), 30e18);
+        bHermesToken.gaugeWeight().incrementGauge(address(gauge4), 40e18);
+        vm.stopPrank();
+
+        vm.startPrank(USER2);
+        // Someone will create the incentive to draw the liquidity to his project (USER2)
+        key = IUniswapV3Staker.IncentiveKey({pool: DAI_USDC_pool, startTime: IncentiveTime.computeEnd(block.timestamp)});
+        rewardToken.approve(address(uniswapV3Staker), 10_000e18);
+        createIncentive({_key: key, amount: 10_000e18});
+        vm.stopPrank();
+
+        vm.warp(key.startTime);
+
+        vm.startPrank(USER1);
+        nonfungiblePositionManager.safeTransferFrom(USER1, address(uniswapV3Staker), tokenId);
+        vm.stopPrank();
+
+        assertEq(nonfungiblePositionManager.ownerOf(tokenId), address(uniswapV3Staker));
+        (address owner,,, uint256 stakedTimestamp) = uniswapV3Staker.deposits(tokenId);
+        assertEq(owner, USER1);
+        assertEq(stakedTimestamp, block.timestamp);
+
+        ////////////////////////////////////////////////////////////////////////
+        
+        flywheelGaugeRewards.queueRewardsForCycle();
+
+        vm.warp(block.timestamp + 1 weeks);
+
+        // flywheelGaugeRewards.queueRewardsForCyclePaginated(4);
+
+        //
+        vm.warp(block.timestamp + 7 days);
+        //
+        //
+        // vm.startPrank(USER1);
+        // uniswapV3Staker.restakeToken(tokenId);
+        // vm.stopPrank();
+        //
+        // vm.prank(USER1);
+        // uniswapV3Staker.claimAllRewards(USER1);
+        // uniswapV3Staker.endIncentive(key);
+    }
+    function testGaugeRewards_PaginatedAndNonPaginated() public {
+
+    }
+
 
     ////////////////////////////////////////////////////////////////////
     //                            Utilities                           //
@@ -462,7 +528,7 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         _gauge = UniswapV3Gauge(address(uniswapV3GaugeFactory.strategyGauges(address(_pool))));
         bHermesToken.gaugeBoost().addGauge(address(_gauge));
         bHermesToken.gaugeWeight().addGauge(address(_gauge));
-        bHermesToken.gaugeWeight().setMaxGauges(1);
+        bHermesToken.gaugeWeight().setMaxGauges(4);
         bHermesToken.gaugeWeight().setMaxDelegates(1);
     }
 

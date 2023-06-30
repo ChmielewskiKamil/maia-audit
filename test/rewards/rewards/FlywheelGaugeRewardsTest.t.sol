@@ -31,6 +31,7 @@ contract FlywheelGaugeRewardsTest is DSTestPlus {
         rewardsStream = new MockRewardsStream(rewardToken, 100e18);
         rewardToken.mint(address(rewardsStream), 100e25);
 
+        /* @audit Cycle length 1000 */
         gaugeToken = new MockERC20Gauges(address(this), 1000, 100);
         gaugeToken.setMaxGauges(10);
         gaugeToken.mint(address(this), 100e18);
@@ -245,6 +246,14 @@ contract FlywheelGaugeRewardsTest is DSTestPlus {
         // pagination not complete, cycle not complete
         require(rewards.gaugeCycle() == 1000);
 
+        /* 
+        struct QueuedRewards {
+            uint112 priorCycleRewards;
+            uint112 cycleRewards;
+            uint32 storedCycle;
+        } 
+        */
+
         (uint112 prior1, uint112 stored1, uint32 cycle1) = rewards.gaugeQueuedRewards(ERC20(gauge1));
         require(prior1 == 0);
         require(stored1 == 10e18);
@@ -351,5 +360,81 @@ contract FlywheelGaugeRewardsTest is DSTestPlus {
         require(rewards.getAccruedRewards() == 40e18); // nothing because no previous round
         hevm.prank(gauge4);
         require(rewards.getAccruedRewards() == 80e18); // nothing because no previous round
+    }
+
+function testAuditPagination_QueueAfterPaginating() public {
+        gaugeToken.addGauge(gauge1);
+        gaugeToken.incrementGauge(gauge1, 1e18);
+
+        gaugeToken.addGauge(gauge2);
+        gaugeToken.incrementGauge(gauge2, 2e18);
+
+        gaugeToken.addGauge(gauge3);
+        gaugeToken.incrementGauge(gauge3, 3e18);
+
+        gaugeToken.addGauge(gauge4);
+        gaugeToken.incrementGauge(gauge4, 4e18);
+
+        hevm.warp(block.timestamp + 1000);
+
+        require(rewards.gaugeCycle() == 1000);
+
+        rewards.queueRewardsForCyclePaginated(2);
+
+        // pagination not complete, cycle not complete
+        require(rewards.gaugeCycle() == 1000);
+
+        /* 
+        struct QueuedRewards {
+            uint112 priorCycleRewards;
+            uint112 cycleRewards;
+            uint32 storedCycle;
+        } 
+        */
+
+        (uint112 prior1, uint112 stored1, uint32 cycle1) = rewards.gaugeQueuedRewards(ERC20(gauge1));
+        require(prior1 == 0);
+        require(stored1 == 10e18);
+        require(cycle1 == 2000);
+
+        (uint112 prior2, uint112 stored2, uint32 cycle2) = rewards.gaugeQueuedRewards(ERC20(gauge2));
+        require(prior2 == 0);
+        require(stored2 == 20e18);
+        require(cycle2 == 2000);
+
+        (uint112 prior3, uint112 stored3, uint32 cycle3) = rewards.gaugeQueuedRewards(ERC20(gauge3));
+        require(prior3 == 0);
+        require(stored3 == 0);
+        require(cycle3 == 0);
+
+        (uint112 prior4, uint112 stored4, uint32 cycle4) = rewards.gaugeQueuedRewards(ERC20(gauge4));
+        require(prior4 == 0);
+        require(stored4 == 0);
+        require(cycle4 == 0);
+
+        // rewards.queueRewardsForCyclePaginated(2); // Instead of using the paginated function,
+        rewards.queueRewardsForCycle();              // we will use the normal one
+
+        require(rewards.gaugeCycle() == 2000);
+
+        (prior1, stored1, cycle1) = rewards.gaugeQueuedRewards(ERC20(gauge1));
+        require(prior1 == 0);
+        require(stored1 == 10e18);
+        require(cycle1 == 2000);
+
+        (prior2, stored2, cycle2) = rewards.gaugeQueuedRewards(ERC20(gauge2));
+        require(prior2 == 0);
+        require(stored2 == 20e18);
+        require(cycle2 == 2000);
+
+        (prior3, stored3, cycle3) = rewards.gaugeQueuedRewards(ERC20(gauge3));
+        require(prior3 == 0);
+        require(stored3 == 30e18);
+        require(cycle3 == 2000);
+
+        (prior4, stored4, cycle4) = rewards.gaugeQueuedRewards(ERC20(gauge4));
+        require(prior4 == 0);
+        require(stored4 == 40e18);
+        require(cycle4 == 2000);
     }
 }
