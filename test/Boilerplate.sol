@@ -39,8 +39,6 @@ import {BaseV2Minter} from "@hermes/minters/BaseV2Minter.sol";
 import {bHermes} from "@hermes/bHermes.sol";
 import {HERMES} from "@hermes/tokens/HERMES.sol";
 
-import {UniswapV3Assistant} from "@test/test-utils/UniswapV3Assistant.t.sol";
-
 import {PoolVariables} from "@talos/libraries/PoolVariables.sol";
 
 import {IUniswapV3Pool, UniswapV3Staker, IUniswapV3Staker, IncentiveTime} from "@v3-staker/UniswapV3Staker.sol";
@@ -69,6 +67,7 @@ contract Boilerplate is Test {
     bHermes bHermesToken;
 
     BaseV2Minter baseV2Minter;
+    BaseV2GaugeManager baseV2GaugeManager;
 
     FlywheelGaugeRewards flywheelGaugeRewards;
     BribesFactory bribesFactory;
@@ -77,6 +76,9 @@ contract Boilerplate is Test {
 
     UniswapV3GaugeFactory uniswapV3GaugeFactory;
     UniswapV3Gauge gauge;
+    UniswapV3Gauge gauge2;
+    UniswapV3Gauge gauge3;
+    UniswapV3Gauge gauge4;
 
     HERMES rewardToken;
 
@@ -94,18 +96,15 @@ contract Boilerplate is Test {
     ////////////////////////////////////////////////////////////////////
 
     address public ATTACKER;
+    address public DEPLOYER;
+    address public ADMIN;
     address public USER1;
     address public USER2;
     address public USER3;
     address public USER4;
-    address public DEPLOYER;
-    address public ADMIN;
 
-    bool public activePrank;
-
-    // Forking
-    string internal mainnet = vm.envString("MAINNET_RPC_URL");
-    // Mainnet forked by anvil, this way we can reduce calls to Alchemy
+    // Arbitrum forked by anvil, this way we can reduce calls to Alchemy
+    // Make sure to first spin up anvil with --fork-url of arbitrum mainnet
     string internal localhost = vm.envString("LOCALHOST_RPC_URL");
 
     // Initialize is used instead of setUp() to have additional setUp() available
@@ -121,6 +120,7 @@ contract Boilerplate is Test {
     //                      Addresses Arbitrum                        //
     ////////////////////////////////////////////////////////////////////
 
+    // Old Arbitrum USDC
     address constant USDC = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
     address constant WETH = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
     address constant DAI = 0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1;
@@ -130,11 +130,11 @@ contract Boilerplate is Test {
     INonfungiblePositionManager nonfungiblePositionManager =
         INonfungiblePositionManager(payable(0xC36442b4a4522E871399CD717aBDD847Ab11FE88));
 
-    // UniV3 ETH/USDC 0.05% pool
-    // https://info.uniswap.org/#/arbitrum/pools/0xc31e54c7a869b9fcbecc14363cf510d1c41fa443
-    UniswapV3Pool ETH_USDC_pool = UniswapV3Pool(0xC31E54c7a869B9FcBEcc14363CF510d1c41fa443);
     // Token0: DAI, Token1: USDC
     UniswapV3Pool DAI_USDC_pool = UniswapV3Pool(0xF0428617433652c9dc6D1093A42AdFbF30D29f74);
+    UniswapV3Pool mockPool2 = UniswapV3Pool(address(0x222));
+    UniswapV3Pool mockPool3 = UniswapV3Pool(address(0x333));
+    UniswapV3Pool mockPool4 = UniswapV3Pool(address(0x444));
 
     ////////////////////////////////////////////////////////////////////
     //                           Utilities                            //
@@ -155,7 +155,9 @@ contract Boilerplate is Test {
         vm.label(USER3, "USER3");
         USER4 = address(0x4444);
         vm.label(USER4, "USER4");
+
         vm.label(address(nonfungiblePositionManager), "nonfungiblePositionManager");
         vm.label(address(DAI_USDC_pool), "DAI_USDC_pool");
+        vm.label(address(uniswapV3Factory), "uniswapV3Factory");
     }
 }
