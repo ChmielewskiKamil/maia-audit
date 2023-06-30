@@ -68,7 +68,7 @@ abstract contract ERC20Gauges is ERC20MultiVotes, ReentrancyGuard, IERC20Gauges 
     // @TODO check if there is delete _userGauges[address] in the code. It won't work
     mapping(address => EnumerableSet.AddressSet) internal _userGauges;
 
-    /* @audit-issue What writes to _gauges? 
+    /* @audit-ok What writes to _gauges? 
     * Only the internal _addGauge function which is called by: addGauge() and replaceGauge */
     /* @audit This is read by:
     * - FlywheelGaugeRewards#queueRewardsForCycle to iterate over to _queueRewards for each gauge */

@@ -172,8 +172,8 @@ contract BaseV2Minter is Ownable, IBaseV2Minter, Test {
         * This is not an issue the shift is expected. No matter when you start the first period, it will be set to thurdsday 00:00
         * Every next period will follow this cycle. */
         if (block.timestamp >= _period + week && initializer == address(0)) {
-            emit log("[ERROR] This shouldn't be hit this soon!");
-            console.log("It was hit because block.timestamp %s >= _period %s + week %s", block.timestamp, _period, week);
+            console.log("[INFO] Timestamp %s is greater than previous period %s + week %s", block.timestamp, _period, week);
+            console.log("[INFO] Because of that, active period will be updated");
             /* @audit-ok The calculation below causes precision loss.
             * The calculated period + week will be equal to 4202150400 
             * When multiplied first and then divided the result is: 4202651988
@@ -185,7 +185,7 @@ contract BaseV2Minter is Ownable, IBaseV2Minter, Test {
             * can be called 2 days sooner than expected. 
             *
             * THIS IS OK, I guess this is how it is supposed to work. */
-            emit log_named_uint("[INFO] Current period: ", _period);
+            emit log_named_uint("[INFO] Current (previous) period: ", _period);
             _period = (block.timestamp / week) * week;
             emit log_named_uint("[CALC] New period: ", _period);
 
@@ -226,7 +226,7 @@ contract BaseV2Minter is Ownable, IBaseV2Minter, Test {
 
             emit Mint(msg.sender, newWeeklyEmission, _circulatingSupply, _growth, share);
 
-            /* @audit Is it really the case that it won't enter? Possible re-entrancy. */
+            /* @audit-ok Is it really the case that it won't enter? Possible re-entrancy. */
             /// @dev queue rewards for the cycle, anyone can call if fails
             ///      queueRewardsForCycle will call this function but won't enter
             ///      here because activePeriod was updated
