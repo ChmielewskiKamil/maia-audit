@@ -14,8 +14,9 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         rewardToken = new HERMES({_owner: ADMIN});
 
         vm.startPrank(ADMIN);
-        rewardToken.mint(USER1, 1_000e18);
-        rewardToken.mint(USER2, 10_000e18);
+        rewardToken.mint(ALICE, 10_000e18);
+        rewardToken.mint(BOB, 10_000e18);
+        rewardToken.mint(CHARLIE, 10_000e18);
         vm.stopPrank();
 
         bHermesToken =
@@ -65,30 +66,32 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
 
         uniswapV3Staker = IUniswapV3Staker(address(uniswapV3StakerContract));
 
-        deal(address(DAI), USER1, 1_000_000e18);
-        deal(address(USDC), USER1, 1_000_000e6);
+        deal(address(DAI), ALICE, 1_000_000e18);
+        deal(address(USDC), ALICE, 1_000_000e6);
+        deal(address(DAI), BOB, 1_000_000e18);
+        deal(address(USDC), BOB, 1_000_000e6);
     }
 
     function testOpenUniPosition() public {
-        vm.startPrank(USER1, USER1);
-        (uint256 tokenId,,,) = mintNewPosition({amount0ToMint: 1_000e18, amount1ToMint: 1_000e6, _recipient: USER1});
+        vm.startPrank(ALICE, ALICE);
+        (uint256 tokenId,,,) = mintNewPosition({amount0ToMint: 1_000e18, amount1ToMint: 1_000e6, _recipient: ALICE});
         // Test contract holds the NFT
         assertEq(nonfungiblePositionManager.ownerOf(tokenId), address(this));
         vm.stopPrank();
     }
 
     function testStake() public {
-        vm.startPrank(USER1);
+        vm.startPrank(ALICE);
         // User needs to have a UniV3 position for staking (ex. DAI/USDC)
-        (uint256 tokenId,,,) = mintNewPosition({amount0ToMint: 1_000e18, amount1ToMint: 1_000e6, _recipient: USER1});
+        (uint256 tokenId,,,) = mintNewPosition({amount0ToMint: 1_000e18, amount1ToMint: 1_000e6, _recipient: ALICE});
         vm.stopPrank();
 
         vm.startPrank(ADMIN);
         gauge = createGaugeAndAddToGaugeBoost({_pool: DAI_USDC_pool, minWidth: 1});
         vm.stopPrank();
 
-        vm.startPrank(USER2, USER2);
-        // Someone will create the incentive to draw the liquidity to his project (USER2)
+        vm.startPrank(BOB, BOB);
+        // Someone will create the incentive to draw the liquidity to his project (BOB)
         emit log_named_uint("[testStake]: Computed Start: ", IncentiveTime.computeEnd(block.timestamp));
         emit log_named_address("[testStake]: Pool: ", address(DAI_USDC_pool));
         key = IUniswapV3Staker.IncentiveKey({pool: DAI_USDC_pool, startTime: IncentiveTime.computeEnd(block.timestamp)});
@@ -98,31 +101,39 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
 
         vm.warp(key.startTime);
 
-        vm.prank(USER1);
-        nonfungiblePositionManager.safeTransferFrom(USER1, address(uniswapV3Staker), tokenId);
+        vm.prank(ALICE);
+        nonfungiblePositionManager.safeTransferFrom(ALICE, address(uniswapV3Staker), tokenId);
 
         assertEq(nonfungiblePositionManager.ownerOf(tokenId), address(uniswapV3Staker));
         (address owner,,, uint256 stakedTimestamp) = uniswapV3Staker.deposits(tokenId);
-        assertEq(owner, USER1);
+        assertEq(owner, ALICE);
         assertEq(stakedTimestamp, block.timestamp);
+    }
+
+    function testStake_MultipleUsers() public {
+        vm.startPrank(ALICE);
+
+        vm.stopPrank();
     }
 
     function testClaimStakingRewards() public {
         //////////////// THIS IS THE SAME AS IN TESTSTAKE //////////////////////
-        vm.startPrank(USER1);
+        vm.startPrank(ALICE);
         // User needs to have a UniV3 position for staking (ex. DAI/USDC)
-        (uint256 tokenId,,,) = mintNewPosition({amount0ToMint: 1_000e18, amount1ToMint: 1_000e6, _recipient: USER1});
+        (uint256 tokenId,,,) = mintNewPosition({amount0ToMint: 1_000e18, amount1ToMint: 1_000e6, _recipient: ALICE});
         emit log_named_address("[TEST] Token owner: ", nonfungiblePositionManager.ownerOf(tokenId));
         vm.stopPrank();
 
+        vm.startPrank(ADMIN);
         gauge = createGaugeAndAddToGaugeBoost({_pool: DAI_USDC_pool, minWidth: 1});
+        vm.stopPrank();
 
-        vm.startPrank(USER2);
+        vm.startPrank(BOB);
 
         emit log_named_uint("[TEST]: Computed start time (key): ", IncentiveTime.computeEnd(block.timestamp));
         emit log_named_address("[TEST]: Pool address: ", address(DAI_USDC_pool));
 
-        // Someone will create the incentive to draw the liquidity to his project (USER2)
+        // Someone will create the incentive to draw the liquidity to his project (BOB)
         key = IUniswapV3Staker.IncentiveKey({pool: DAI_USDC_pool, startTime: IncentiveTime.computeEnd(block.timestamp)});
         rewardToken.approve(address(uniswapV3Staker), 10_000e18);
         createIncentive({_key: key, amount: 10_000e18});
@@ -130,13 +141,13 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
 
         vm.warp(key.startTime);
 
-        vm.startPrank(USER1);
-        nonfungiblePositionManager.safeTransferFrom(USER1, address(uniswapV3Staker), tokenId);
+        vm.startPrank(ALICE);
+        nonfungiblePositionManager.safeTransferFrom(ALICE, address(uniswapV3Staker), tokenId);
         vm.stopPrank();
 
         assertEq(nonfungiblePositionManager.ownerOf(tokenId), address(uniswapV3Staker));
         (address owner,,, uint256 stakedTimestamp) = uniswapV3Staker.deposits(tokenId);
-        assertEq(owner, USER1);
+        assertEq(owner, ALICE);
         assertEq(stakedTimestamp, block.timestamp);
 
         ////////////////////////////////////////////////////////////////////////
@@ -145,7 +156,7 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
 
         // (uint256 reward,) = uniswapV3Staker.getRewardInfo(key, tokenId);
 
-        vm.prank(USER1);
+        vm.prank(ALICE);
         uniswapV3Staker.unstakeToken(tokenId);
 
         emit log_named_uint("[INFO] Rewards after unstaking: ", uniswapV3Staker.tokenIdRewards(tokenId));
@@ -155,28 +166,28 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
 
     function testRestake_SimpleRestake() public {
         //////////////// THIS IS THE SAME AS IN TESTSTAKE //////////////////////
-        vm.startPrank(USER1);
+        vm.startPrank(ALICE);
         // User needs to have a UniV3 position for staking (ex. DAI/USDC)
-        (uint256 tokenId,,,) = mintNewPosition({amount0ToMint: 1_000e18, amount1ToMint: 1_000e6, _recipient: USER1});
+        (uint256 tokenId,,,) = mintNewPosition({amount0ToMint: 1_000e18, amount1ToMint: 1_000e6, _recipient: ALICE});
         vm.stopPrank();
 
         vm.startPrank(ADMIN);
         gauge = createGaugeAndAddToGaugeBoost({_pool: DAI_USDC_pool, minWidth: 1});
         vm.stopPrank();
 
-        vm.startPrank(USER1);
+        vm.startPrank(ALICE);
         // User needs to deposit (burn) HERMES for bHermes to later claim weight
         rewardToken.approve(address(bHermesToken), 1_000e18);
-        bHermesToken.deposit(1_000e18, USER1);
+        bHermesToken.deposit(1_000e18, ALICE);
         bHermesToken.claimMultiple(1_000e18);
-        bHermesToken.gaugeWeight().delegate(USER1);
+        bHermesToken.gaugeWeight().delegate(ALICE);
 
         // Allocate claimed weight to the gauge, so that rewards are distributed to the gauge
         bHermesToken.gaugeWeight().incrementGauge(address(gauge), 100e18);
         vm.stopPrank();
 
-        vm.startPrank(USER2);
-        // Someone will create the incentive to draw the liquidity to his project (USER2)
+        vm.startPrank(BOB);
+        // Someone will create the incentive to draw the liquidity to his project (BOB)
         key = IUniswapV3Staker.IncentiveKey({pool: DAI_USDC_pool, startTime: IncentiveTime.computeEnd(block.timestamp)});
         rewardToken.approve(address(uniswapV3Staker), 10_000e18);
         createIncentive({_key: key, amount: 10_000e18});
@@ -184,13 +195,13 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
 
         vm.warp(key.startTime);
 
-        vm.startPrank(USER1);
-        nonfungiblePositionManager.safeTransferFrom(USER1, address(uniswapV3Staker), tokenId);
+        vm.startPrank(ALICE);
+        nonfungiblePositionManager.safeTransferFrom(ALICE, address(uniswapV3Staker), tokenId);
         vm.stopPrank();
 
         assertEq(nonfungiblePositionManager.ownerOf(tokenId), address(uniswapV3Staker));
         (address owner,,, uint256 stakedTimestamp) = uniswapV3Staker.deposits(tokenId);
-        assertEq(owner, USER1);
+        assertEq(owner, ALICE);
         assertEq(stakedTimestamp, block.timestamp);
 
         ////////////////////////////////////////////////////////////////////////
@@ -199,21 +210,21 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
 
         vm.warp(block.timestamp + 7 days);
 
-        vm.startPrank(USER1);
+        vm.startPrank(ALICE);
         uniswapV3Staker.restakeToken(tokenId);
         vm.stopPrank();
 
-        vm.prank(USER1);
-        uniswapV3Staker.claimAllRewards(USER1);
+        vm.prank(ALICE);
+        uniswapV3Staker.claimAllRewards(ALICE);
         // uniswapV3Staker.endIncentive(key);
     }
 
     // Confirmed Finding
     function testRestake_AnyoneCanRestakeAfterIncentiveEnds() public {
         //////////////// THIS IS THE SAME //////////////////////
-        vm.startPrank(USER1);
+        vm.startPrank(ALICE);
         // User needs to have a UniV3 position for staking (ex. DAI/USDC)
-        (uint256 tokenId,,,) = mintNewPosition({amount0ToMint: 1_000e18, amount1ToMint: 1_000e6, _recipient: USER1});
+        (uint256 tokenId,,,) = mintNewPosition({amount0ToMint: 1_000e18, amount1ToMint: 1_000e6, _recipient: ALICE});
         emit log_named_address("[TEST] Token owner: ", nonfungiblePositionManager.ownerOf(tokenId));
         vm.stopPrank();
 
@@ -221,12 +232,12 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         gauge = createGaugeAndAddToGaugeBoost({_pool: DAI_USDC_pool, minWidth: 1});
         vm.stopPrank();
 
-        vm.startPrank(USER2);
+        vm.startPrank(BOB);
 
         emit log_named_uint("[TEST]: Computed start time (key): ", IncentiveTime.computeEnd(block.timestamp));
         emit log_named_address("[TEST]: Pool address: ", address(DAI_USDC_pool));
 
-        // Someone will create the incentive to draw the liquidity to his project (USER2)
+        // Someone will create the incentive to draw the liquidity to his project (BOB)
         key = IUniswapV3Staker.IncentiveKey({pool: DAI_USDC_pool, startTime: IncentiveTime.computeEnd(block.timestamp)});
         rewardToken.approve(address(uniswapV3Staker), 10_000e18);
         createIncentive({_key: key, amount: 10_000e18});
@@ -234,13 +245,13 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
 
         vm.warp(key.startTime);
 
-        vm.startPrank(USER1);
-        nonfungiblePositionManager.safeTransferFrom(USER1, address(uniswapV3Staker), tokenId);
+        vm.startPrank(ALICE);
+        nonfungiblePositionManager.safeTransferFrom(ALICE, address(uniswapV3Staker), tokenId);
         vm.stopPrank();
 
         assertEq(nonfungiblePositionManager.ownerOf(tokenId), address(uniswapV3Staker));
         (address owner,,, uint256 stakedTimestamp) = uniswapV3Staker.deposits(tokenId);
-        assertEq(owner, USER1);
+        assertEq(owner, ALICE);
         assertEq(stakedTimestamp, block.timestamp);
 
         ////////////////////////////////////////////////////////////////////////
@@ -248,7 +259,7 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         // We will warp the time past the incentive end time
         vm.warp(block.timestamp + 8 days);
 
-        vm.startPrank(USER2);
+        vm.startPrank(BOB);
         // It is not possible to restake if new incentive program has not been started. The calculated incentiveId,
         // will use the timestamp of the new period and it will be different. RestakeToken would fail with nonExistentIncentive
         key = IUniswapV3Staker.IncentiveKey({pool: DAI_USDC_pool, startTime: IncentiveTime.computeEnd(block.timestamp)});
@@ -262,17 +273,17 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         vm.expectRevert(bytes4(keccak256("NotCalledByOwner()")));
         // According to the comment in the UniswapV3Staker _unstakeToken function,
         // anyone should be able to restake the token after the incentive ends.
-        vm.startPrank(USER2);
+        vm.startPrank(BOB);
         uniswapV3Staker.restakeToken(tokenId);
         vm.stopPrank();
 
         vm.warp(block.timestamp + 5 days);
 
-        vm.prank(USER1);
+        vm.prank(ALICE);
         uniswapV3Staker.unstakeToken(tokenId);
 
-        vm.prank(USER1);
-        uniswapV3Staker.claimAllRewards(USER1);
+        vm.prank(ALICE);
+        uniswapV3Staker.claimAllRewards(ALICE);
     }
 
     function testMinter_UpdatePeriodFasterThanExpected() public {
@@ -287,9 +298,9 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         gauge = createGaugeAndAddToGaugeBoost({_pool: DAI_USDC_pool, minWidth: 1});
         vm.stopPrank();
 
-        vm.startPrank(USER1);
+        vm.startPrank(ALICE);
         rewardToken.approve(address(bHermesToken), 10_000e18);
-        bHermesToken.deposit(10_000e18, USER1);
+        bHermesToken.deposit(10_000e18, ALICE);
         vm.stopPrank();
 
         uint256 activePeriodBefore1 = baseV2Minter.activePeriod();
@@ -341,11 +352,11 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         gauge = createGaugeAndAddToGaugeBoost({_pool: DAI_USDC_pool, minWidth: 1});
         vm.stopPrank();
 
-        // rewardToken.mint(USER1, 100_000e18);
-        // deal(address(rewardToken), USER1, 100_000e18);
-        vm.startPrank(USER1);
+        // rewardToken.mint(ALICE, 100_000e18);
+        // deal(address(rewardToken), ALICE, 100_000e18);
+        vm.startPrank(ALICE);
         rewardToken.approve(address(bHermesToken), 10_000e18);
-        bHermesToken.deposit(10_000e18, USER1);
+        bHermesToken.deposit(10_000e18, ALICE);
         vm.stopPrank();
 
         emit log("==== testMinter_UpdatePeriodFasterThanExpected ====");
@@ -372,7 +383,7 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         uint256 activePeriodBefore2 = baseV2Minter.activePeriod();
         uint256 circulatingSupplyBefore2 = baseV2Minter.circulatingSupply();
 
-        vm.startPrank(USER2, USER2);
+        vm.startPrank(BOB, BOB);
         gauge.newEpoch();
         // baseV2Minter.updatePeriod();
         vm.stopPrank();
@@ -386,9 +397,9 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
 
     function testRewards_DOSWithPaginatedQueue() public {
         //////////////// THIS IS THE SAME AS IN TESTSTAKE //////////////////////
-        vm.startPrank(USER1);
+        vm.startPrank(ALICE);
         // User needs to have a UniV3 position for staking (ex. DAI/USDC)
-        (uint256 tokenId,,,) = mintNewPosition({amount0ToMint: 1_000e18, amount1ToMint: 1_000e6, _recipient: USER1});
+        (uint256 tokenId,,,) = mintNewPosition({amount0ToMint: 1_000e18, amount1ToMint: 1_000e6, _recipient: ALICE});
         vm.stopPrank();
 
         vm.startPrank(ADMIN);
@@ -398,12 +409,12 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         gauge4 = createGaugeAndAddToGaugeBoost({_pool: mockPool4, minWidth: 1});
         vm.stopPrank();
 
-        vm.startPrank(USER1);
+        vm.startPrank(ALICE);
         // User needs to deposit (burn) HERMES for bHermes to later claim weight
         rewardToken.approve(address(bHermesToken), 1_000e18);
-        bHermesToken.deposit(1_000e18, USER1);
+        bHermesToken.deposit(1_000e18, ALICE);
         bHermesToken.claimMultiple(1_000e18);
-        bHermesToken.gaugeWeight().delegate(USER1);
+        bHermesToken.gaugeWeight().delegate(ALICE);
 
         // Allocate claimed weight to the gauge, so that rewards are distributed to the gauge
         bHermesToken.gaugeWeight().incrementGauge(address(gauge), 10e18);
@@ -412,8 +423,8 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         bHermesToken.gaugeWeight().incrementGauge(address(gauge4), 40e18);
         vm.stopPrank();
 
-        vm.startPrank(USER2);
-        // Someone will create the incentive to draw the liquidity to his project (USER2)
+        vm.startPrank(BOB);
+        // Someone will create the incentive to draw the liquidity to his project (BOB)
         key = IUniswapV3Staker.IncentiveKey({pool: DAI_USDC_pool, startTime: IncentiveTime.computeEnd(block.timestamp)});
         rewardToken.approve(address(uniswapV3Staker), 10_000e18);
         createIncentive({_key: key, amount: 10_000e18});
@@ -421,13 +432,13 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
 
         vm.warp(key.startTime);
 
-        vm.startPrank(USER1);
-        nonfungiblePositionManager.safeTransferFrom(USER1, address(uniswapV3Staker), tokenId);
+        vm.startPrank(ALICE);
+        nonfungiblePositionManager.safeTransferFrom(ALICE, address(uniswapV3Staker), tokenId);
         vm.stopPrank();
 
         assertEq(nonfungiblePositionManager.ownerOf(tokenId), address(uniswapV3Staker));
         (address owner,,, uint256 stakedTimestamp) = uniswapV3Staker.deposits(tokenId);
-        assertEq(owner, USER1);
+        assertEq(owner, ALICE);
         assertEq(stakedTimestamp, block.timestamp);
 
         ////////////////////////////////////////////////////////////////////////
@@ -442,12 +453,12 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         vm.warp(block.timestamp + 7 days);
         //
         //
-        // vm.startPrank(USER1);
+        // vm.startPrank(ALICE);
         // uniswapV3Staker.restakeToken(tokenId);
         // vm.stopPrank();
         //
-        // vm.prank(USER1);
-        // uniswapV3Staker.claimAllRewards(USER1);
+        // vm.prank(ALICE);
+        // uniswapV3Staker.claimAllRewards(ALICE);
         // uniswapV3Staker.endIncentive(key);
     }
 
