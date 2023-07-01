@@ -103,6 +103,8 @@ contract Boilerplate is Test {
     address public CHARLIE;
     address public EVE;
 
+    bool activePrank;
+
     // Arbitrum forked by anvil, this way we can reduce calls to Alchemy
     // Make sure to first spin up anvil with --fork-url of arbitrum mainnet
     string internal localhost = vm.envString("LOCALHOST_RPC_URL");
@@ -139,6 +141,22 @@ contract Boilerplate is Test {
     ////////////////////////////////////////////////////////////////////
     //                           Utilities                            //
     ////////////////////////////////////////////////////////////////////
+
+    function suStart(address user) public {
+        vm.startPrank(user);
+        activePrank = true;
+    }
+
+    function suStop() public {
+        vm.stopPrank();
+        activePrank = false;
+    }
+
+    modifier asUser(address user) {
+        suStart(user);
+        _;
+        suStop();
+   }
 
     function makeAddr() public {
         ATTACKER = address(0x1337);
