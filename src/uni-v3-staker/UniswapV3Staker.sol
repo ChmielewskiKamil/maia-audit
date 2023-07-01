@@ -159,7 +159,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
         * It is okay, when creating incentive from the gauge the start time of the next incentive
         * is the end time of the previous one. */
         /* @audit-issue I've changed it to computeStart for testing */
-        uint96 startTime = IncentiveTime.computeStart(block.timestamp);
+        uint96 startTime = IncentiveTime.computeEnd(block.timestamp);
 
         console.log("[INFO] Computed incentive start time is: %s, which is ~%s hours from current timestamp: %s.", startTime, (startTime - block.timestamp) / 1 hours, block.timestamp);
 
