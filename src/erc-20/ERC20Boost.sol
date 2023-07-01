@@ -241,7 +241,7 @@ abstract contract ERC20Boost is ERC20, Ownable, IERC20Boost {
         * See the decrementGaugesBoostIndexed function for the issue reference 
         * They should function the same, so that users are not confused. */
         if (boost >= gaugeState.userGaugeBoost) {
-            /* @audit-confirmed NON-CRIT Return value of remove is unchecked, event will be emitted nonetheless */
+            /* @audit-reported NON-CRIT Return value of remove is unchecked, event will be emitted nonetheless */
             _userGauges[msg.sender].remove(gauge);
             delete getUserGaugeBoost[msg.sender][gauge];
 
