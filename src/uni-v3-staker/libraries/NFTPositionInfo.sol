@@ -37,6 +37,6 @@ library NFTPositionInfo {
             )
         );
         /* @audit Hardcoded value for tests, to skip init code hash */
-        // pool = IUniswapV3Pool(0xF0428617433652c9dc6D1093A42AdFbF30D29f74);
+        pool = IUniswapV3Pool(0xF0428617433652c9dc6D1093A42AdFbF30D29f74);
 }
 }
