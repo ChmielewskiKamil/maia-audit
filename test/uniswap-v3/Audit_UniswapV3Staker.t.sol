@@ -213,6 +213,168 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         vm.stopPrank();
     }
 
+    uint256 timestampStart;
+    function testStake_weirdCycles() public {
+        timestampStart = block.timestamp;
+        uint256 gaugeEpochStart = gauge.epoch();
+        uint256 minterActivePeriodStart = baseV2Minter.activePeriod();
+        console.log("[INFO]   Current timestamp              : %s", timestampStart);
+        console.log("[INFO]   Current gauge epoch            : %s", gaugeEpochStart);
+        console.log("[INFO]   Current minter active period   : %s", minterActivePeriodStart);
+
+        uint256 hermesBalanceAliceBefore = rewardToken.balanceOf(ALICE);
+        uint256 hermesBalanceBobBefore = rewardToken.balanceOf(BOB);
+        assertEq(hermesBalanceAliceBefore, 0);
+        assertEq(hermesBalanceBobBefore, 0);
+
+        // Alice's deposit will be 10x bigger than Bob's to showcase the difference in rewards.
+        vm.startPrank(ALICE);
+        (uint256 tokenIdAlice,,,) = mintNewPosition({amount0ToMint: 10_000e18, amount1ToMint: 10_000e6, _recipient: ALICE});
+        vm.stopPrank();
+
+        vm.startPrank(BOB);
+        (uint256 tokenIdBob,,,) = mintNewPosition({amount0ToMint: 1_000e18, amount1ToMint: 1_000e6, _recipient: BOB});
+        vm.stopPrank();
+
+        vm.startPrank(CHARLIE);
+        key = IUniswapV3Staker.IncentiveKey({pool: DAI_USDC_pool, startTime: IncentiveTime.computeEnd(block.timestamp)});
+        rewardToken.approve(address(uniswapV3Staker), 10_000e18);
+        createIncentive({_key: key, amount: 10_000e18});
+        vm.stopPrank();
+
+        console.log("[INFO]   Charlie's incentive start time : %s", key.startTime);
+        console.log("[INFO]   Incentive will start in        : ~%s days", (key.startTime - block.timestamp) / 1 days);
+
+        console.log("[STATUS] Warp to the incentive startTime");
+        vm.warp(key.startTime);
+        console.log("[INFO]   Days since test started        : ~%s days", (block.timestamp - timestampStart) / 1 days);
+        
+        vm.startPrank(ALICE);
+        nonfungiblePositionManager.safeTransferFrom(ALICE, address(uniswapV3Staker), tokenIdAlice);
+        vm.stopPrank();
+        
+        vm.startPrank(BOB);
+        nonfungiblePositionManager.safeTransferFrom(BOB, address(uniswapV3Staker), tokenIdBob);
+        vm.stopPrank();
+
+        console.log("[STATUS] Alice and Bob: stake the positions...");
+
+        assertEq(uniswapV3Staker.tokenIdRewards(tokenIdAlice), 0, "Rewards should be 0 at the beginning");
+        assertEq(uniswapV3Staker.tokenIdRewards(tokenIdBob), 0, "Rewards should be 0 at the beginning");
+
+        // Warp to the incentive end time
+        vm.warp(block.timestamp + 1 weeks);
+        assertEq(key.startTime + 1 weeks, block.timestamp);
+        console.log("[STATUS] Warp to the incentive endTime");
+        console.log("[INFO]   Days since test started        : ~%s days", (block.timestamp - timestampStart) / 1 days);
+
+        assertEq(uniswapV3Staker.tokenIdRewards(tokenIdAlice), 0, "Rewards should be 0 before unstaking");
+        assertEq(uniswapV3Staker.tokenIdRewards(tokenIdBob), 0, "Rewards should be 0 before unstaking");
+
+        vm.startPrank(ALICE);
+        uniswapV3Staker.unstakeToken(tokenIdAlice);
+        vm.stopPrank();
+
+        vm.startPrank(BOB);
+        uniswapV3Staker.unstakeToken(tokenIdBob);
+        vm.stopPrank();
+
+        console.log("[STATUS] Alice and Bob: unstake tokens...");
+
+        uint256 hermesRewardAfterFirstStakeAlice = uniswapV3Staker.tokenIdRewards(tokenIdAlice);
+        uint256 hermesRewardAfterFirstStakeBob = uniswapV3Staker.tokenIdRewards(tokenIdBob);
+        console.log("[INFO]   Alice's rewards                : %s", hermesRewardAfterFirstStakeAlice);
+        console.log("[INFO]   Bob's rewards                  : %s", hermesRewardAfterFirstStakeBob);
+
+        assertGt(uniswapV3Staker.tokenIdRewards(tokenIdAlice), uniswapV3Staker.tokenIdRewards(tokenIdBob), "Alice should have more rewards than Bob");
+
+        vm.startPrank(ALICE);
+        uniswapV3Staker.claimAllRewards(ALICE);
+        vm.stopPrank();
+
+        vm.startPrank(BOB);
+        uniswapV3Staker.claimAllRewards(BOB);
+        vm.stopPrank();
+
+        console.log("[STATUS] Alice and Bob: claim rewards");
+
+        uint256 hermesBalanceAfterFirstStakeAlice = rewardToken.balanceOf(ALICE);
+        uint256 hermesBalanceAfterFirstStakeBob = rewardToken.balanceOf(BOB);
+
+        assertEq(hermesBalanceAfterFirstStakeAlice, hermesBalanceAliceBefore + hermesRewardAfterFirstStakeAlice, "Alice should have received her rewards");
+        assertEq(hermesBalanceAfterFirstStakeBob, hermesBalanceBobBefore + hermesRewardAfterFirstStakeBob, "Bob should have received his rewards");
+
+        vm.startPrank(ALICE);
+        rewardToken.approve(address(bHermesToken), rewardToken.balanceOf(ALICE));
+        bHermesToken.deposit(rewardToken.balanceOf(ALICE), ALICE);
+        bHermesToken.claimMultiple(bHermesToken.balanceOf(ALICE));
+        bHermesToken.gaugeWeight().delegate(ALICE);
+        bHermesToken.gaugeWeight().incrementGauge(address(gauge), uint112(bHermesToken.balanceOf(ALICE)));
+        vm.stopPrank();
+        
+        vm.startPrank(BOB);
+        rewardToken.approve(address(bHermesToken), rewardToken.balanceOf(BOB));
+        bHermesToken.deposit(rewardToken.balanceOf(BOB), BOB);
+        bHermesToken.claimMultiple(bHermesToken.balanceOf(BOB));
+        bHermesToken.gaugeWeight().delegate(BOB);
+        bHermesToken.gaugeWeight().incrementGauge(address(gauge), uint112(bHermesToken.balanceOf(BOB)));
+        vm.stopPrank();
+
+        console.log("[STATUS] Alice and Bob: deposit, claim weight and increment gauge");
+
+        uint256 hermesBalanceAfterFirstGaugeIncrementAlice = rewardToken.balanceOf(ALICE);
+        uint256 hermesBalanceAfterFirstGaugeIncrementBob = rewardToken.balanceOf(BOB);
+        assertEq(hermesBalanceAfterFirstGaugeIncrementAlice, 0);
+        assertEq(hermesBalanceAfterFirstGaugeIncrementBob, 0);
+
+        // The unclaimed rewards are queued for the next cycle
+        vm.warp(block.timestamp + 7 days);
+        console.log("[STATUS] Warp 7 days");
+        console.log("[INFO]   Days since test started        : ~%s days", (block.timestamp - timestampStart) / 1 days);
+        console.log("[INFO]   Current gauge epoch            : %s", gauge.epoch());
+        console.log("[STATUS] Calling newEpoch()");
+        gauge.newEpoch();
+        console.log("[INFO]   Updated gauge epoch            : %s", gauge.epoch());
+        console.log("[INFO]   Updated minter period          : %s", baseV2Minter.activePeriod());
+        uint256 newIncentiveStartTime = IncentiveTime.computeEnd(block.timestamp);
+        console.log("[INFO]   Incentive created from gauge   : %s", newIncentiveStartTime);
+        console.log("[INFO]   New incentive will start in    : %s days", (newIncentiveStartTime - block.timestamp) / 1 days);
+
+        vm.warp(block.timestamp + 7 days);
+        console.log("[STATUS Warp to the new incentive start time");
+        console.log("[INFO]   Days since test started        : ~%s days", (block.timestamp - timestampStart) / 1 days);
+
+        vm.startPrank(ALICE);
+        uniswapV3Staker.stakeToken(tokenIdAlice);
+        vm.stopPrank();
+        console.log("[STATUS] Alice: stake token");
+
+        vm.warp(block.timestamp + 7 days);
+        console.log("[STATUS] Warp to the new incentive end time");
+        console.log("[INFO]   Days since test started        : ~%s days", (block.timestamp - timestampStart) / 1 days);
+
+        vm.startPrank(ALICE);
+        uniswapV3Staker.unstakeToken(tokenIdAlice);
+        vm.stopPrank();
+        console.log("[STATUS] Alice: unstake token");
+
+        console.log("[STATUS] Calling newEpoch()");
+        gauge.newEpoch();
+        console.log("[INFO]   Updated gauge epoch            : %s", gauge.epoch());
+        console.log("[INFO]   Updated minter period          : %s", baseV2Minter.activePeriod());
+        uint256 newIncentive2StartTime = IncentiveTime.computeEnd(block.timestamp);
+        console.log("[INFO]   Incentive created from gauge   : %s", newIncentive2StartTime);
+        console.log("[INFO]   New incentive will start in    : %s days", (newIncentive2StartTime - block.timestamp) / 1 days);
+
+        vm.warp(block.timestamp + 7 days);
+        console.log("[STATUS] Warp to the new incentive start time");
+
+        vm.startPrank(ALICE);
+        uniswapV3Staker.stakeToken(tokenIdAlice);
+        vm.stopPrank();
+        console.log("[STATUS] Alice: stake token");
+    }
+
     function testClaimStakingRewards() public {
         //////////////// THIS IS THE SAME AS IN TESTSTAKE //////////////////////
         vm.startPrank(ALICE);
