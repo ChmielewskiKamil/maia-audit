@@ -560,7 +560,7 @@ contract UniswapV3StakerTest is DSTestPlus, IERC721Receiver {
         createIncentive(key, rewardAmount);
         hevm.warp(key.startTime);
 
-        baseV2Minter.updatePeriod();
+        gauge.newEpoch();
 
         hevm.prank(user1);
         uniswapV3Staker.restakeToken(tokenId);
