@@ -158,7 +158,10 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
         /* @audit-ok Shouldn't this use computeStart? This is fcked for sure. 
         * It is okay, when creating incentive from the gauge the start time of the next incentive
         * is the end time of the previous one. */
-        uint96 startTime = IncentiveTime.computeEnd(block.timestamp);
+        /* @audit-issue I've changed it to computeStart for testing */
+        uint96 startTime = IncentiveTime.computeStart(block.timestamp);
+
+        console.log("[INFO] Computed incentive start time is: %s, which is ~%s hours from current timestamp: %s.", startTime, (startTime - block.timestamp) / 1 hours, block.timestamp);
 
         /* @audit-ok Who is supposed to be msg.sender for this function? 
         * gaugePool returns the pool addr for a given gauge. 
@@ -291,38 +294,38 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
         * Version 2 is the cheapest
         
         1. This is the current version
-| src/uni-v3-staker/UniswapV3Staker.sol:UniswapV3Staker contract |                 |        |        |        |         |
-|----------------------------------------------------------------|-----------------|--------|--------|--------|---------|
-| Deployment Cost                                                | Deployment Size |        |        |        |         |
-| 4564115                                                        | 23398           |        |        |        |         |
-| Function Name                                                  | min             | avg    | median | max    | # calls |
-| createIncentive                                                | 54228           | 54228  | 54228  | 54228  | 1       |
-| deposits                                                       | 698             | 698    | 698    | 698    | 1       |
-| onERC721Received                                               | 235867          | 235867 | 235867 | 235867 | 1       |
-| updateGauges                                                   | 97735           | 97735  | 97735  | 97735  | 1       |
+        | src/uni-v3-staker/UniswapV3Staker.sol:UniswapV3Staker contract |                 |        |        |        |         |
+        |----------------------------------------------------------------|-----------------|--------|--------|--------|---------|
+        | Deployment Cost                                                | Deployment Size |        |        |        |         |
+        | 4564115                                                        | 23398           |        |        |        |         |
+        | Function Name                                                  | min             | avg    | median | max    | # calls |
+        | createIncentive                                                | 54228           | 54228  | 54228  | 54228  | 1       |
+        | deposits                                                       | 698             | 698    | 698    | 698    | 1       |
+        | onERC721Received                                               | 235867          | 235867 | 235867 | 235867 | 1       |
+        | updateGauges                                                   | 97735           | 97735  | 97735  | 97735  | 1       |
 
-        2. This is the simplified version with no local variable
-| src/uni-v3-staker/UniswapV3Staker.sol:UniswapV3Staker contract |                 |        |        |        |         |
-|----------------------------------------------------------------|-----------------|--------|--------|--------|---------|
-| Deployment Cost                                                | Deployment Size |        |        |        |         |
-| 4563715                                                        | 23396           |        |        |        |         |
-| Function Name                                                  | min             | avg    | median | max    | # calls |
-| createIncentive                                                | 54228           | 54228  | 54228  | 54228  | 1       |
-| deposits                                                       | 698             | 698    | 698    | 698    | 1       |
-| onERC721Received                                               | 235862          | 235862 | 235862 | 235862 | 1       |
-| updateGauges                                                   | 97735           | 97735  | 97735  | 97735  | 1       |
+                2. This is the simplified version with no local variable
+        | src/uni-v3-staker/UniswapV3Staker.sol:UniswapV3Staker contract |                 |        |        |        |         |
+        |----------------------------------------------------------------|-----------------|--------|--------|--------|---------|
+        | Deployment Cost                                                | Deployment Size |        |        |        |         |
+        | 4563715                                                        | 23396           |        |        |        |         |
+        | Function Name                                                  | min             | avg    | median | max    | # calls |
+        | createIncentive                                                | 54228           | 54228  | 54228  | 54228  | 1       |
+        | deposits                                                       | 698             | 698    | 698    | 698    | 1       |
+        | onERC721Received                                               | 235862          | 235862 | 235862 | 235862 | 1       |
+        | updateGauges                                                   | 97735           | 97735  | 97735  | 97735  | 1       |
 
-        3. This is the version where local variable is used in both places
-| src/uni-v3-staker/UniswapV3Staker.sol:UniswapV3Staker contract |                 |        |        |        |         |
-|----------------------------------------------------------------|-----------------|--------|--------|--------|---------|
-| Deployment Cost                                                | Deployment Size |        |        |        |         |
-| 4557691                                                        | 23359           |        |        |        |         |
-| Function Name                                                  | min             | avg    | median | max    | # calls |
-| createIncentive                                                | 54228           | 54228  | 54228  | 54228  | 1       |
-| deposits                                                       | 698             | 698    | 698    | 698    | 1       |
-| onERC721Received                                               | 235867          | 235867 | 235867 | 235867 | 1       |
-| updateGauges                                                   | 97735           | 97735  | 97735  | 97735  | 1       |
-*/
+                3. This is the version where local variable is used in both places
+        | src/uni-v3-staker/UniswapV3Staker.sol:UniswapV3Staker contract |                 |        |        |        |         |
+        |----------------------------------------------------------------|-----------------|--------|--------|--------|---------|
+        | Deployment Cost                                                | Deployment Size |        |        |        |         |
+        | 4557691                                                        | 23359           |        |        |        |         |
+        | Function Name                                                  | min             | avg    | median | max    | # calls |
+        | createIncentive                                                | 54228           | 54228  | 54228  | 54228  | 1       |
+        | deposits                                                       | 698             | 698    | 698    | 698    | 1       |
+        | onERC721Received                                               | 235867          | 235867 | 235867 | 235867 | 1       |
+        | updateGauges                                                   | 97735           | 97735  | 97735  | 97735  | 1       |
+        */
         INonfungiblePositionManager _nonfungiblePositionManager = nonfungiblePositionManager;
         if (msg.sender != address(_nonfungiblePositionManager)) revert TokenNotUniswapV3NFT();
 
@@ -484,6 +487,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
         * This flag should be false, so that anyone can restake. See testRestake_AnyoneCanRestakeAfterIncentiveEnds test 
         * 
         * To remove the overhead rename the flag to isRestake and change the logic in _unstake accordingly. */
+        console.log("[INFO] incentiveId.startTime: %s != 0 -> %s", incentiveId.startTime, incentiveId.startTime != 0);
         if (incentiveId.startTime != 0) _unstakeToken(incentiveId, tokenId, true);
 
         (IUniswapV3Pool pool, int24 tickLower, int24 tickUpper, uint128 liquidity) =
@@ -538,6 +542,9 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
         * Yes, it is correct. NotOwner should not restake before the end time. */
         /* @audit Check default value of isNotRestake && does isNotRestake is true when is not restaken? */
         // anyone can call restakeToken if the block time is after the end time of the incentive
+        console.log("isNotRestake: ", isNotRestake);
+        console.log("block.timestamp < endTime: %s ", block.timestamp < endTime);
+        console.log("owner != msg.sender: %s ", owner != msg.sender);
         if ((isNotRestake || block.timestamp < endTime) && owner != msg.sender) revert NotCalledByOwner();
 
         {
