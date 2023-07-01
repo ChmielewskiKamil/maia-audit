@@ -98,10 +98,10 @@ contract Boilerplate is Test {
     address public ATTACKER;
     address public DEPLOYER;
     address public ADMIN;
-    address public USER1;
-    address public USER2;
-    address public USER3;
-    address public USER4;
+    address public ALICE;
+    address public BOB;
+    address public CHARLIE;
+    address public EVE;
 
     // Arbitrum forked by anvil, this way we can reduce calls to Alchemy
     // Make sure to first spin up anvil with --fork-url of arbitrum mainnet
@@ -147,14 +147,14 @@ contract Boilerplate is Test {
         vm.label(DEPLOYER, "DEPLOYER");
         ADMIN = address(0xCAFE);
         vm.label(ADMIN, "ADMIN");
-        USER1 = address(0x1111);
-        vm.label(USER1, "USER1");
-        USER2 = address(0x2222);
-        vm.label(USER2, "USER2");
-        USER3 = address(0x3333);
-        vm.label(USER3, "USER3");
-        USER4 = address(0x4444);
-        vm.label(USER4, "USER4");
+        ALICE = address(0x1111);
+        vm.label(ALICE, "ALICE");
+        BOB = address(0x2222);
+        vm.label(BOB, "BOB");
+        CHARLIE = address(0x3333);
+        vm.label(CHARLIE, "CHARLIE");
+        EVE = address(0x4444);
+        vm.label(EVE, "EVE");
 
         vm.label(address(nonfungiblePositionManager), "nonfungiblePositionManager");
         vm.label(address(DAI_USDC_pool), "DAI_USDC_pool");
