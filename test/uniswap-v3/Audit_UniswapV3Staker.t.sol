@@ -383,7 +383,8 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         assertNotEq(activePeriodBefore2, activePeriodAfter2);
         assertNotEq(circulatingSupplyBefore2, circulatingSupplyAfter2);
     }
-function testRewards_DOSWithPaginatedQueue() public {
+
+    function testRewards_DOSWithPaginatedQueue() public {
         //////////////// THIS IS THE SAME AS IN TESTSTAKE //////////////////////
         vm.startPrank(USER1);
         // User needs to have a UniV3 position for staking (ex. DAI/USDC)
@@ -430,7 +431,7 @@ function testRewards_DOSWithPaginatedQueue() public {
         assertEq(stakedTimestamp, block.timestamp);
 
         ////////////////////////////////////////////////////////////////////////
-        
+
         flywheelGaugeRewards.queueRewardsForCycle();
 
         vm.warp(block.timestamp + 1 weeks);
@@ -449,10 +450,8 @@ function testRewards_DOSWithPaginatedQueue() public {
         // uniswapV3Staker.claimAllRewards(USER1);
         // uniswapV3Staker.endIncentive(key);
     }
-    function testGaugeRewards_PaginatedAndNonPaginated() public {
 
-    }
-
+    function testGaugeRewards_PaginatedAndNonPaginated() public {}
 
     ////////////////////////////////////////////////////////////////////
     //                            Utilities                           //
