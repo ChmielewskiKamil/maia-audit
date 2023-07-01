@@ -14,8 +14,6 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         rewardToken = new HERMES({_owner: ADMIN});
 
         vm.startPrank(ADMIN);
-        rewardToken.mint(ALICE, 10_000e18);
-        rewardToken.mint(BOB, 10_000e18);
         rewardToken.mint(CHARLIE, 10_000e18);
         vm.stopPrank();
 
@@ -70,6 +68,10 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         deal(address(USDC), ALICE, 1_000_000e6);
         deal(address(DAI), BOB, 1_000_000e18);
         deal(address(USDC), BOB, 1_000_000e6);
+        
+        vm.startPrank(ADMIN);
+        gauge = createGaugeAndAddToGaugeBoost({_pool: DAI_USDC_pool, minWidth: 1});
+        vm.stopPrank();
     }
 
     function testOpenUniPosition() public {
@@ -84,10 +86,6 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         vm.startPrank(ALICE);
         // User needs to have a UniV3 position for staking (ex. DAI/USDC)
         (uint256 tokenId,,,) = mintNewPosition({amount0ToMint: 1_000e18, amount1ToMint: 1_000e6, _recipient: ALICE});
-        vm.stopPrank();
-
-        vm.startPrank(ADMIN);
-        gauge = createGaugeAndAddToGaugeBoost({_pool: DAI_USDC_pool, minWidth: 1});
         vm.stopPrank();
 
         vm.startPrank(BOB, BOB);
@@ -111,8 +109,107 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
     }
 
     function testStake_MultipleUsers() public {
-        vm.startPrank(ALICE);
+        gauge.newEpoch();
 
+        uint256 hermesBalanceAliceBefore = rewardToken.balanceOf(ALICE);
+        uint256 hermesBalanceBobBefore = rewardToken.balanceOf(BOB);
+        assertEq(hermesBalanceAliceBefore, 0);
+        assertEq(hermesBalanceBobBefore, 0);
+
+        // Alice's deposit will be 10x bigger than Bob's to showcase the difference in rewards.
+        vm.startPrank(ALICE);
+        (uint256 tokenIdAlice,,,) = mintNewPosition({amount0ToMint: 10_000e18, amount1ToMint: 10_000e6, _recipient: ALICE});
+        vm.stopPrank();
+
+        vm.startPrank(BOB);
+        (uint256 tokenIdBob,,,) = mintNewPosition({amount0ToMint: 1_000e18, amount1ToMint: 1_000e6, _recipient: BOB});
+        vm.stopPrank();
+
+        vm.startPrank(CHARLIE);
+        key = IUniswapV3Staker.IncentiveKey({pool: DAI_USDC_pool, startTime: IncentiveTime.computeEnd(block.timestamp)});
+        rewardToken.approve(address(uniswapV3Staker), 10_000e18);
+        createIncentive({_key: key, amount: 10_000e18});
+        vm.stopPrank();
+
+        console.log("Current timestamp: %s", block.timestamp);
+        console.log("Incentive start time: %s", key.startTime);
+        console.log("Incentive will start in ~%s hours", (key.startTime - block.timestamp) / 1 hours);
+        vm.warp(key.startTime);
+        
+        vm.startPrank(ALICE);
+        nonfungiblePositionManager.safeTransferFrom(ALICE, address(uniswapV3Staker), tokenIdAlice);
+        vm.stopPrank();
+        
+        vm.startPrank(BOB);
+        nonfungiblePositionManager.safeTransferFrom(BOB, address(uniswapV3Staker), tokenIdBob);
+        vm.stopPrank();
+
+        assertEq(uniswapV3Staker.tokenIdRewards(tokenIdAlice), 0, "Rewards should be 0 at the beginning");
+        assertEq(uniswapV3Staker.tokenIdRewards(tokenIdBob), 0, "Rewards should be 0 at the beginning");
+
+        // Warp to the incentive end time
+        vm.warp(block.timestamp + 1 weeks);
+        assertEq(key.startTime + 1 weeks, block.timestamp);
+
+        assertEq(uniswapV3Staker.tokenIdRewards(tokenIdAlice), 0, "Rewards should be 0 before unstaking");
+        assertEq(uniswapV3Staker.tokenIdRewards(tokenIdBob), 0, "Rewards should be 0 before unstaking");
+
+        vm.startPrank(ALICE);
+        uniswapV3Staker.unstakeToken(tokenIdAlice);
+        vm.stopPrank();
+
+        // vm.startPrank(BOB);
+        // uniswapV3Staker.unstakeToken(tokenIdBob);
+        // vm.stopPrank();
+
+        uint256 hermesRewardAfterFirstStakeAlice = uniswapV3Staker.tokenIdRewards(tokenIdAlice);
+        uint256 hermesRewardAfterFirstStakeBob = uniswapV3Staker.tokenIdRewards(tokenIdBob);
+        console.log("[INFO] Alice's rewards: %s", hermesRewardAfterFirstStakeAlice);
+        console.log("[INFO] Bob's rewards:   %s", hermesRewardAfterFirstStakeBob);
+
+        assertGt(uniswapV3Staker.tokenIdRewards(tokenIdAlice), uniswapV3Staker.tokenIdRewards(tokenIdBob), "Alice should have more rewards than Bob");
+
+        vm.startPrank(ALICE);
+        uniswapV3Staker.claimAllRewards(ALICE);
+        vm.stopPrank();
+
+        vm.startPrank(BOB);
+        uniswapV3Staker.claimAllRewards(BOB);
+        vm.stopPrank();
+
+        uint256 hermesBalanceAfterFirstStakeAlice = rewardToken.balanceOf(ALICE);
+        uint256 hermesBalanceAfterFirstStakeBob = rewardToken.balanceOf(BOB);
+
+        assertEq(hermesBalanceAfterFirstStakeAlice, hermesBalanceAliceBefore + hermesRewardAfterFirstStakeAlice, "Alice should have received her rewards");
+        assertEq(hermesBalanceAfterFirstStakeBob, hermesBalanceBobBefore + hermesRewardAfterFirstStakeBob, "Bob should have received his rewards");
+
+        vm.startPrank(ALICE);
+        rewardToken.approve(address(bHermesToken), rewardToken.balanceOf(ALICE));
+        bHermesToken.deposit(rewardToken.balanceOf(ALICE), ALICE);
+        bHermesToken.claimMultiple(bHermesToken.balanceOf(ALICE));
+        bHermesToken.gaugeWeight().delegate(ALICE);
+        bHermesToken.gaugeWeight().incrementGauge(address(gauge), uint112(bHermesToken.balanceOf(ALICE)));
+        vm.stopPrank();
+        
+        // vm.startPrank(BOB);
+        // rewardToken.approve(address(bHermesToken), rewardToken.balanceOf(BOB));
+        // bHermesToken.deposit(rewardToken.balanceOf(BOB), BOB);
+        // bHermesToken.claimMultiple(bHermesToken.balanceOf(BOB));
+        // bHermesToken.gaugeWeight().delegate(BOB);
+        // bHermesToken.gaugeWeight().incrementGauge(address(gauge), uint112(bHermesToken.balanceOf(BOB)));
+        // vm.stopPrank();
+
+        uint256 hermesBalanceAfterFirstGaugeIncrementAlice = rewardToken.balanceOf(ALICE);
+        uint256 hermesBalanceAfterFirstGaugeIncrementBob = rewardToken.balanceOf(BOB);
+        assertEq(hermesBalanceAfterFirstGaugeIncrementAlice, 0);
+        assertEq(hermesBalanceAfterFirstGaugeIncrementBob, 0);
+
+        // The rewards are queued for the next cycle
+        vm.warp(block.timestamp + 7 days);
+        gauge.newEpoch();
+
+        vm.startPrank(ALICE);
+        uniswapV3Staker.restakeToken(tokenIdBob);
         vm.stopPrank();
     }
 
@@ -122,10 +219,6 @@ contract Audit_UniswapV3Staker is Boilerplate, IERC721Receiver {
         // User needs to have a UniV3 position for staking (ex. DAI/USDC)
         (uint256 tokenId,,,) = mintNewPosition({amount0ToMint: 1_000e18, amount1ToMint: 1_000e6, _recipient: ALICE});
         emit log_named_address("[TEST] Token owner: ", nonfungiblePositionManager.ownerOf(tokenId));
-        vm.stopPrank();
-
-        vm.startPrank(ADMIN);
-        gauge = createGaugeAndAddToGaugeBoost({_pool: DAI_USDC_pool, minWidth: 1});
         vm.stopPrank();
 
         vm.startPrank(BOB);
