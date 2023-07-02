@@ -234,7 +234,7 @@ abstract contract ERC20Boost is ERC20, Ownable, IERC20Boost {
     /// @inheritdoc IERC20Boost
     function decrementGaugeBoost(address gauge, uint256 boost) public {
         GaugeState storage gaugeState = getUserGaugeBoost[msg.sender][gauge];
-        /* @audit-confirmed This should probably handle also the deprecated gauges,
+        /* @audit-reported This should probably handle also the deprecated gauges,
         * just like the functions below decrementGaugesBoostIndexed
         * if (deprecated.contains || boost >= gaugeState) 
         *
@@ -276,7 +276,7 @@ abstract contract ERC20Boost is ERC20, Ownable, IERC20Boost {
 
             GaugeState storage gaugeState = getUserGaugeBoost[msg.sender][gauge];
 
-            /* @audit-confirmed What's special about this function that they are checking for deprecated gauges here
+            /* @audit-reported What's special about this function that they are checking for deprecated gauges here
             * In the decrementGaugeBoost it was not checked. 
             *
             * Either remove the deprecated gauges check here, or add it to the decrementGaugeBoost function, 
