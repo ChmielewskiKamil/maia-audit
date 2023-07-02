@@ -96,7 +96,7 @@ interface IERC20Boost {
      */
     function deprecatedGauges() external view returns (address[] memory);
 
-    /* @audit-confirmed NON-CRIT: This comment is incorrect, it returns the number of deprecated not live gauges */
+    /* @audit-reported NON-CRIT: This comment is incorrect, it returns the number of deprecated not live gauges */
     /**
      * @notice returns the number of live gauges
      */
