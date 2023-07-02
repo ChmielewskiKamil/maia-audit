@@ -243,7 +243,7 @@ contract BaseV2Minter is Ownable, IBaseV2Minter, Test {
                          REWARDS STREAM LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    /* @audit-confirmed NON-CRITICAL Misleading function name, Getter performs transfer
+    /* @audit-reported NON-CRITICAL Misleading function name, Getter performs transfer
     * Usually functions starting with get are getters (view functions) that read a variable. */
     /// @inheritdoc IBaseV2Minter
     function getRewards() external returns (uint256 totalQueuedForCycle) {
