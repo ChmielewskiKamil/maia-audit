@@ -371,7 +371,7 @@ abstract contract ERC20Boost is ERC20, Ownable, IERC20Boost {
     }
 
     function _removeGauge(address gauge) internal {
-        /* @audit-confirmed Comment is incorrect:
+        /* @audit-reported Comment is incorrect:
         * it should fail loud if it is already deprecated 
         * add will return false when: 
             * gauge was already present in deprecated 
