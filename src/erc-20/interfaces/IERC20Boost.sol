@@ -102,7 +102,7 @@ interface IERC20Boost {
      */
     function numDeprecatedGauges() external view returns (uint256);
 
-    /* @audit-confirmed NON-CRIT: This comment is incorrect, it returns the amount that is left to allocate */
+    /* @audit-reported NON-CRIT: This comment is incorrect, it returns the amount that is left to allocate */
     /**
      * @notice returns the set of gauges the user has allocated to, they may be live or deprecated.
      */
