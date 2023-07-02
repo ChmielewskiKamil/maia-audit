@@ -81,7 +81,7 @@ interface IFlywheelGaugeRewards {
     /* @audit-reported NON-CRITICAL
     * - Missing natspec for parameter
     * - The notice is the same as for the function above */
-    /* @audit-confirmed NON-CRIT Incorrect comment
+    /* @audit-reported NON-CRIT Incorrect comment
     * It suggests that the function is the same (almost the same) while the innerworkings are different. */
     /// @notice Iterates over all live gauges and queues up the rewards for the cycle
     function queueRewardsForCyclePaginated(uint256 numRewards) external;
