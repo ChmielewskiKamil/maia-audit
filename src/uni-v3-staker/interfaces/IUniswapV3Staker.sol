@@ -237,7 +237,7 @@ interface IUniswapV3Staker is IERC721Receiver {
                             STAKE TOKEN LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    /* @audit-confirmed restakeToken() function is missing in the interface although it is defined
+    /* @audit-reported restakeToken() function is missing in the interface although it is defined
     * as external in the Staker contract.
     *
     * Improve the test coverage on restakeToken function as it is not tested as of now. 
