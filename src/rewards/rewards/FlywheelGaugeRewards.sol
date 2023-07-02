@@ -80,7 +80,7 @@ contract FlywheelGaugeRewards is Ownable, IFlywheelGaugeRewards, Test {
         emit log("");
         emit log("==== FlywheelGaugeRewards.queueRewardsForCycle ====");
 
-        /* @audit-confirmed Typo in the comment -> Not found by the bot. rewars -> rewards */
+        /* @audit-reported Typo in the comment -> Not found by the bot. rewars -> rewards */
         /* @audit-ok Check if this is not a re-entrancy issue */
         /* @audit-ok updatePeriod returns uint256, why is the return value not checked 
         * Not an issue*/
