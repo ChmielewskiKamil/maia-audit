@@ -185,7 +185,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
         hermes.safeTransferFrom(msg.sender, address(this), reward);
 
         emit IncentiveCreated(pool, startTime, reward);
-        emit log("---- createIncentiveFromGauge END ----");
+        console.log("---------- Incentive created ----------");
     }
 
     /* @audit-ok How do you get an incentive key?
@@ -194,14 +194,9 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
     * for participants. */
     /// @inheritdoc IUniswapV3Staker
     function createIncentive(IncentiveKey memory key, uint256 reward) external {
-        emit log("");
-        emit log("==== UniswapV3Staker.createIncentive ====");
         if (reward <= 0) revert IncentiveRewardMustBePositive();
 
         uint96 startTime = IncentiveTime.computeStart(key.startTime);
-
-        emit log_named_uint("[CALC] Computed incentive start time: ", startTime);
-        emit log("It has to match the start time from the key.");
 
         if (startTime != key.startTime) revert IncentiveStartTimeNotAtEndOfAnEpoch();
 
@@ -216,14 +211,11 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
 
         bytes32 incentiveId = IncentiveId.compute(key);
 
-        emit log_named_bytes32("[INFO] Computed incentiveId", incentiveId);
-
         incentives[incentiveId].totalRewardUnclaimed += reward;
 
         hermes.safeTransferFrom(msg.sender, address(this), reward);
 
         emit IncentiveCreated(key.pool, startTime, reward);
-        emit log("----------------------------------------");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -232,11 +224,6 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
 
     /// @inheritdoc IUniswapV3Staker
     function endIncentive(IncentiveKey memory key) external returns (uint256 refund) {
-        emit log("");
-        emit log("==== UniswapV3Staker.endIncentive ====");
-        emit log_named_uint("[INFO] Computed incentive end time: ", IncentiveTime.getEnd(key.startTime));
-        emit log_named_uint("[INFO] Current block timestamp: ", block.timestamp);
-
         if (block.timestamp < IncentiveTime.getEnd(key.startTime)) {
             revert EndIncentiveBeforeEndTime();
         }
@@ -246,27 +233,19 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
         Incentive storage incentive = incentives[incentiveId];
 
         refund = incentive.totalRewardUnclaimed;
-        emit log_named_uint("[INFO] Total reward unclaimed: ", refund);
 
         if (refund == 0) revert EndIncentiveNoRefundAvailable();
 
-        emit log_named_uint("[INFO] Number of remaining stakes: ", incentive.numberOfStakes);
         if (incentive.numberOfStakes > 0) revert EndIncentiveWhileStakesArePresent();
 
         // issue the refund
         incentive.totalRewardUnclaimed = 0;
 
-        emit log_named_uint("[INFO] Minter balance before refund: ", hermes.balanceOf(minter));
-        emit log("[STATUS] SafeTransfer refund to minter...");
-
         hermes.safeTransfer(minter, refund);
-
-        emit log_named_uint("[INFO] Minter balance after refund: ", hermes.balanceOf(minter));
 
         /* @audit What does that mean? */
         // note we never clear totalSecondsClaimedX128
         emit IncentiveEnded(incentiveId, refund);
-        emit log("----------------------------------------");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -284,7 +263,6 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
         override
         returns (bytes4)
     {
-        emit log("==== UniV3Staker.onERC721Received ====");
         /* @audit-confirmed GAS not caught by the bot
         * Why is this assigning it to a local variable instead of using address(nonfungiblePositionManager)? 
         * Probably a gas optimization to reduce storage loads 
@@ -340,7 +318,6 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
         // stake the token in the current incentive
         _stakeToken(tokenId, pool, tickLower, tickUpper, liquidity);
 
-        emit log("---------- UniswapV3Staker.onERC721Received callback ended ----------");
         return this.onERC721Received.selector;
     }
 
@@ -390,47 +367,28 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
     * Yes it does require unstaking first (at least that's what they are doing in the tests). */
     /// @inheritdoc IUniswapV3Staker
     function claimAllRewards(address to) external returns (uint256 reward) {
-        emit log("");
-        emit log("==== UniswapV3Staker.claimAllRewards ====");
-
-        emit log_named_address("[INFO] Msg.sender for rewards[msg.sender]: ", msg.sender);
         reward = rewards[msg.sender];
-
-        emit log_named_uint("[INFO] User rewards: ", reward);
 
         rewards[msg.sender] = 0;
 
-        emit log_named_uint("[INFO] User's hermes balance before: ", hermes.balanceOf(to));
         if (reward > 0) hermes.safeTransfer(to, reward);
-        emit log_named_uint("[INFO] User's hermes balance after: ", hermes.balanceOf(to));
 
         emit RewardClaimed(to, reward);
-        emit log("----------------------------------------");
     }
 
     /// @inheritdoc IUniswapV3Staker
     function getRewardInfo(IncentiveKey memory key, uint256 tokenId)
         external
-        /* AUDIT view */
+        view
         override
         returns (uint256 reward, uint160 secondsInsideX128)
     {
-        emit log("");
-        emit log("==== UniswapV3Staker.getRewardInfo ====");
         Deposit storage deposit = deposits[tokenId];
 
         (uint96 endTime, uint256 stakedDuration) =
             IncentiveTime.getEndAndDuration(key.startTime, deposit.stakedTimestamp, block.timestamp);
 
-        emit log_named_uint("[INFO] Incentive start time: ", key.startTime);
-        emit log_named_uint("[INFO] Deposit staked timestamp: ", deposit.stakedTimestamp);
-        emit log_named_uint("[INFO] Current block timestamp: ", block.timestamp);
-        emit log("Calculation: IncentiveTime.getEndAndDuration()");
-        emit log_named_uint("[CALC] Incentive end time: ", endTime);
-        emit log_named_uint("[CALC] Deposit duration: ", stakedDuration);
-
         bytes32 incentiveId = IncentiveId.compute(key);
-        emit log_named_bytes32("[INFO] Computed incentiveId: ", incentiveId);
 
         {
             uint128 boostAmount;
@@ -441,11 +399,6 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
                 // get boost amount and total supply
                 (boostAmount, boostTotalSupply) = hermesGaugeBoost.getUserGaugeBoost(owner, address(gauges[key.pool]));
             }
-
-            emit log_named_uint("[INFO] User attachements [owner][key.pool]: ", _userAttachements[owner][key.pool]);
-            emit log_named_address("[INFO] Deposit owner: ", owner);
-            emit log_named_uint("[INFO] User boost amount: ", boostAmount);
-            emit log_named_uint("[INFO] Boost total supply: ", boostTotalSupply);
 
             (uint160 secondsPerLiquidityInsideInitialX128, uint128 liquidity) = stakes(tokenId, incentiveId);
             if (liquidity == 0) revert TokenNotStaked();
@@ -472,7 +425,6 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
             secondsInsideX128,
             block.timestamp
         );
-        emit log("----------------------------------------");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -480,21 +432,17 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
     //////////////////////////////////////////////////////////////*/
 
     function restakeToken(uint256 tokenId) external {
-        emit log("");
-        emit log("==== UniswapV3Staker.restakeToken ====");
         IncentiveKey storage incentiveId = stakedIncentiveKey[tokenId];
         /* @audit-confirmed Shouldn't the flag isNotRestake be false here? 
         * This flag should be false, so that anyone can restake. See testRestake_AnyoneCanRestakeAfterIncentiveEnds test 
         * 
         * To remove the overhead rename the flag to isRestake and change the logic in _unstake accordingly. */
-        console.log("[INFO] incentiveId.startTime: %s != 0 -> %s", incentiveId.startTime, incentiveId.startTime != 0);
-        if (incentiveId.startTime != 0) _unstakeToken(incentiveId, tokenId, true);
+        if (incentiveId.startTime != 0) _unstakeToken(incentiveId, tokenId, false);
 
         (IUniswapV3Pool pool, int24 tickLower, int24 tickUpper, uint128 liquidity) =
             NFTPositionInfo.getPositionInfo(factory, nonfungiblePositionManager, tokenId);
 
         _stakeToken(tokenId, pool, tickLower, tickUpper, liquidity);
-        emit log("----- UniswapV3Staker.restakeToken completed ------");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -516,20 +464,11 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
 
     /* @audit This function has many interactions. What are the things it does? */
     function _unstakeToken(IncentiveKey memory key, uint256 tokenId, bool isNotRestake) private {
-        emit log("");
-        emit log("==== UniswapV3Staker._unstakeToken ====");
-
         /* @info Liquidity NFT position info: owner, tick lower upper and when staked */
         Deposit storage deposit = deposits[tokenId];
 
         (uint96 endTime, uint256 stakedDuration) =
             IncentiveTime.getEndAndDuration(key.startTime, deposit.stakedTimestamp, block.timestamp);
-
-        emit log_named_uint("[INFO] Incentive start time: ", key.startTime);
-        emit log_named_uint("[INFO] Deposit staked timestamp: ", deposit.stakedTimestamp);
-        emit log_named_uint("[INFO] Current block timestamp: ", block.timestamp);
-        emit log_named_uint("[CALC] Incentive end time: ", endTime);
-        emit log_named_uint("[CALC] Deposit duration: ", stakedDuration);
 
         address owner = deposit.owner;
 
@@ -542,9 +481,6 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
         * Yes, it is correct. NotOwner should not restake before the end time. */
         /* @audit Check default value of isNotRestake && does isNotRestake is true when is not restaken? */
         // anyone can call restakeToken if the block time is after the end time of the incentive
-        console.log("isNotRestake: ", isNotRestake);
-        console.log("block.timestamp < endTime: %s ", block.timestamp < endTime);
-        console.log("owner != msg.sender: %s ", owner != msg.sender);
         if ((isNotRestake || block.timestamp < endTime) && owner != msg.sender) revert NotCalledByOwner();
 
         {
@@ -565,7 +501,6 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
         }
 
         bytes32 incentiveId = IncentiveId.compute(key);
-        emit log_named_bytes32("[CALC] Incentive ID: ", incentiveId);
         uint160 secondsInsideX128;
         uint128 liquidity;
         {
@@ -576,12 +511,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
 
             // If tokenId is attached to gauge
             if (hermesGaugeBoost.isUserGauge(owner, address(gauge)) && _userAttachements[owner][key.pool] == tokenId) {
-                emit log("[STATUS] User is attached to the gauge (`if` entered)");
                 // get boost amount and total supply
                 (boostAmount, boostTotalSupply) = hermesGaugeBoost.getUserGaugeBoost(owner, address(gauge));
-
-                emit log_named_uint("[INFO] User boost amount: ", boostAmount);
-                emit log_named_uint("[INFO] Boost total supply: ", boostTotalSupply);
 
                 gauge.detachUser(owner);
                 _userAttachements[owner][key.pool] = 0;
@@ -590,21 +521,10 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
             uint160 secondsPerLiquidityInsideInitialX128;
             (secondsPerLiquidityInsideInitialX128, liquidity) = stakes(tokenId, incentiveId);
 
-            emit log_named_uint("[INFO] Seconds per liquidity inside INITIAL X128: ", secondsPerLiquidityInsideInitialX128);
-            emit log_named_uint("[INFO] Liquidity: ", liquidity);
-
             if (liquidity == 0) revert TokenNotStaked();
 
             (, uint160 secondsPerLiquidityInsideX128,) =
                 key.pool.snapshotCumulativesInside(deposit.tickLower, deposit.tickUpper);
-
-            emit log_named_uint("[CALC] Seconds per liquidity inside X128: ", secondsPerLiquidityInsideX128);
-
-            emit log("");
-            emit log("Computing boosted seconds inside...");
-            emit log("uint160 secondsInsideX128 = (secondsPerLiquidityInsideX128 - secondsPerLiquidityInsideInitialX128) * liquidity; ");
-            emit log("If no boost -> 40% of that //// If boost -> 40% + 60%");
-            emit log("");
         
             secondsInsideX128 = RewardMath.computeBoostedSecondsInsideX128(
                 stakedDuration,
@@ -615,7 +535,6 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
                 secondsPerLiquidityInsideX128
             );
 
-            emit log_named_uint("[CALC] Boosted Seconds Inside: ", secondsInsideX128);
         }
 
         deposit.stakedTimestamp = 0;
@@ -630,8 +549,6 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
             block.timestamp
         );
 
-        emit log_named_uint("[INFO] Total reward unclaimed: ", incentive.totalRewardUnclaimed);
-        emit log_named_uint("[CALC] Boosted Reward Amount: ", reward);
         emit log_named_decimal_uint("[INFO] User Reward as a percentage of total unclaimed: ", reward * 100e18 / incentive.totalRewardUnclaimed, 18);
 
         unchecked {
@@ -655,7 +572,6 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
         if (liquidity >= type(uint96).max) stake.liquidityIfOverflow = 0;
         delete stakedIncentiveKey[tokenId];
         emit TokenUnstaked(tokenId, incentiveId);
-        emit log("----------------------------------------");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -670,7 +586,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
             NFTPositionInfo.getPositionInfo(factory, nonfungiblePositionManager, tokenId);
 
         /* @audit Hardocded value for tests to skip init code hash */
-        pool = IUniswapV3Pool(0xF0428617433652c9dc6D1093A42AdFbF30D29f74);
+        // pool = IUniswapV3Pool(0xF0428617433652c9dc6D1093A42AdFbF30D29f74);
 
         _stakeToken(tokenId, pool, tickLower, tickUpper, liquidity);
     }
@@ -679,17 +595,9 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
     function _stakeToken(uint256 tokenId, IUniswapV3Pool pool, int24 tickLower, int24 tickUpper, uint128 liquidity)
         private
     {
-        emit log("");
-        emit log("==== UniswapV3Staker._stakeToken ====");
-        emit log_named_uint("[INFO] Current timestamp: ", block.timestamp);
-        emit log_named_uint("[INFO] Computed start time: ", IncentiveTime.computeStart(block.timestamp));
-        emit log_named_address("[INFO] Pool: ", address(pool));
         IncentiveKey memory key = IncentiveKey({pool: pool, startTime: IncentiveTime.computeStart(block.timestamp)});
 
         bytes32 incentiveId = IncentiveId.compute(key);
-        
-        emit log_named_bytes32("[INFO] Computed incentiveId: ", incentiveId);
-        emit log_named_uint("[INFO] Total rewards unclaimed: [incentiveId]: ", incentives[incentiveId].totalRewardUnclaimed);
 
         if (incentives[incentiveId].totalRewardUnclaimed == 0) revert NonExistentIncentiveError();
 
@@ -718,8 +626,6 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
 
         (, uint160 secondsPerLiquidityInsideX128,) = pool.snapshotCumulativesInside(tickLower, tickUpper);
 
-        emit log_named_uint("[INFO] Seconds per liquidity inside X128: ", secondsPerLiquidityInsideX128);
-
         if (liquidity >= type(uint96).max) {
             _stakes[tokenId][incentiveId] = Stake({
                 secondsPerLiquidityInsideInitialX128: secondsPerLiquidityInsideX128,
@@ -733,7 +639,6 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicallable, Test {
         }
 
         emit TokenStaked(tokenId, incentiveId, liquidity);
-        emit log("----------------------------------------");
     }
 
     /*//////////////////////////////////////////////////////////////

@@ -77,9 +77,6 @@ contract FlywheelGaugeRewards is Ownable, IFlywheelGaugeRewards, Test {
 
     /// @inheritdoc IFlywheelGaugeRewards
     function queueRewardsForCycle() external returns (uint256 totalQueuedForCycle) {
-        emit log("");
-        emit log("==== FlywheelGaugeRewards.queueRewardsForCycle ====");
-
         /* @audit-reported Typo in the comment -> Not found by the bot. rewars -> rewards */
         /* @audit-ok Check if this is not a re-entrancy issue */
         /* @audit-ok updatePeriod returns uint256, why is the return value not checked 
@@ -87,19 +84,15 @@ contract FlywheelGaugeRewards is Ownable, IFlywheelGaugeRewards, Test {
         /// @dev Update minter cycle and queue rewars if needed.
         /// This will make this call fail if it is a new epoch, because the minter calls this function, the first call would fail with "CycleError()".
         /// Should be called through Minter to kickoff new epoch.
-        console.log("[STATUS] Trying to call minter.updatePeriod()");
         minter.updatePeriod();
-        emit log("Update period done");
 
         // next cycle is always the next even divisor of the cycle length above current block timestamp.
         uint32 currentCycle = (block.timestamp.toUint32() / gaugeCycleLength) * gaugeCycleLength;
         uint32 lastCycle = gaugeCycle;
 
         // ensure new cycle has begun
-        console.log("currentCycle %s has to be > lastCycle %s -> %s", currentCycle, lastCycle, currentCycle > lastCycle);
         if (currentCycle <= lastCycle) revert CycleError();
 
-        console.log("[STATUS] Setting gaugeCycle to currentCycle: %s", currentCycle);
         gaugeCycle = currentCycle;
 
         // queue the rewards stream and sanity check the tokens were received
@@ -109,7 +102,6 @@ contract FlywheelGaugeRewards is Ownable, IFlywheelGaugeRewards, Test {
         /* @info This call triggers the transfer of HERMES tokens from BaseV2Minter to this contract */
         /* @audit This transfers `weekly` which is the weekly emission */
         totalQueuedForCycle = minter.getRewards();
-        emit log("Get rewards done");
 
         /* @audit-ok Isn't totalQueuedForCycle always 0 at this point? It wasn't modified before 
         * NO, it is modified above. GetRewards() returns newWeeklyEmission */
@@ -129,11 +121,6 @@ contract FlywheelGaugeRewards is Ownable, IFlywheelGaugeRewards, Test {
         * ERC20Gauges#AddGauge() and ERC20Gauges#ReplaceGauge() both onlyOwner protected. */
         address[] memory gauges = gaugeToken.gauges();
 
-        emit log("Calling _queueRewards with: gauges, currentCycle, lastCycle, totalQueuedForCycle");
-        emit log_named_uint("gauges: It is an array of length: ", gauges.length);
-        emit log_named_uint("currentCycle: ", currentCycle);
-        emit log_named_uint("lastCycle: ", lastCycle);
-        emit log_named_uint("totalQueuedForCycle: ", totalQueuedForCycle);
         /* @audit-issue If you first call the paginated version, some of the gauges will already be queued. 
         * What is the implication of that? */
         _queueRewards(gauges, currentCycle, lastCycle, totalQueuedForCycle);
@@ -142,7 +129,6 @@ contract FlywheelGaugeRewards is Ownable, IFlywheelGaugeRewards, Test {
         paginationOffset = 0;
 
         emit CycleStart(currentCycle, totalQueuedForCycle);
-        emit log("---- queueRewardsForCycle END ----");
     }
 
     /* @audit-issue Is there any situatin where a call to this function as a standalone call (not through minter) is 
@@ -171,7 +157,6 @@ contract FlywheelGaugeRewards is Ownable, IFlywheelGaugeRewards, Test {
         uint32 lastCycle = gaugeCycle;
 
         // ensure new cycle has begun
-        console.log("currentCycle %s has to be > lastCycle %s -> %s", currentCycle, lastCycle, currentCycle > lastCycle);
         if (currentCycle <= lastCycle) revert CycleError();
 
         /* @audit-ok What writes to the nextCycle? 
@@ -220,7 +205,6 @@ contract FlywheelGaugeRewards is Ownable, IFlywheelGaugeRewards, Test {
             * Here because remaining < numRewards we will queue remaining. */
             numRewards = remaining;
             /* @audit-issue Why is the gaugeCycle not updated in a case when remaining > numRewards? */
-            console.log("[STATUS] Setting gaugeCycle to currentCycle: %s", currentCycle);
             gaugeCycle = currentCycle;
             nextCycleQueuedRewards = 0;
             paginationOffset = 0;
@@ -269,7 +253,6 @@ contract FlywheelGaugeRewards is Ownable, IFlywheelGaugeRewards, Test {
 
             QueuedRewards memory queuedRewards = gaugeQueuedRewards[gauge];
 
-            console.log("Gauge storedCycle: %s has to be smaller than currentCycle: %s -> %s", queuedRewards.storedCycle, currentCycle, queuedRewards.storedCycle < currentCycle);
             /* @audit How do you start the cycle queue? The updatePeriod starts it? */
             // Cycle queue already started
             /* @audit-confirmed Add explicit revert string or a custom error. In a situation where gauge were queued
@@ -324,25 +307,16 @@ contract FlywheelGaugeRewards is Ownable, IFlywheelGaugeRewards, Test {
     * */
     /// @inheritdoc IFlywheelGaugeRewards
     function getAccruedRewards() external returns (uint256 accruedRewards) {
-        emit log("");
-        emit log("==== FlywheelGaugeRewards.getAccruedRewards ====");
         /// @dev Update minter cycle and queue rewars if needed.
         minter.updatePeriod();
 
-        emit log_named_address("[INFO] gaugeQueuedRewards[ERC20(msg.sender)] -> msg.sender: ", msg.sender);
         QueuedRewards memory queuedRewards = gaugeQueuedRewards[ERC20(msg.sender)];
 
         uint32 cycle = gaugeCycle;
         /* @audit-followup If msg.sender would be some arbitrary contract, storedCycle would be 0,
         * meaning that `incompleteCycle` would be false */
         bool incompleteCycle = queuedRewards.storedCycle > cycle;
-        emit log_named_uint("[INFO] Cycle: ", cycle);
-        emit log_named_uint("[INFO] Stored Cycle: ", queuedRewards.storedCycle);
-        console.log("[INFO] Is cycle complete? (incompleteCycle): ", incompleteCycle);
 
-        emit log("[STATUS] if priorCycleRewards == 0 && (cycleRewards == 0 || incompleteCycle) accruedRewards = 0");
-        emit log_named_uint("[INFO] Prior cycle rewards: ", queuedRewards.priorCycleRewards);
-        emit log_named_uint("[INFO] Cycle rewards: ", queuedRewards.cycleRewards);
         /* @audit-followup 
         * - The 1st part would be true 
         * - The 2nd part would be true as well bcs cycleRewards would be 0 
@@ -374,6 +348,5 @@ contract FlywheelGaugeRewards is Ownable, IFlywheelGaugeRewards, Test {
         });
 
         if (accruedRewards > 0) rewardToken.safeTransfer(msg.sender, accruedRewards);
-        emit log("----- getAccruedRewards END -----");
     }
 }

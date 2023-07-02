@@ -129,27 +129,13 @@ contract BaseV2Minter is Ownable, IBaseV2Minter, Test {
     }
 
     /// @inheritdoc IBaseV2Minter
-    function weeklyEmission() public /*view*/ returns (uint256) {
-        emit log("");
-        emit log("==== BaseV2Minter.weeklyEmission() ====");
-        emit log_named_uint("[INFO] Circulating supply: ", circulatingSupply());
-        emit log_named_uint("[INFO] Tail emission: ", tailEmission);
-        emit log_named_uint("[INFO] Base: ", base);
-        emit log_named_uint("[CALC] Calculated weekly emission: ", (circulatingSupply() * tailEmission) / base);
-        emit log("---- weeklyEmission END ----");
-        return (circulatingSupply() * tailEmission) / base;
+    function weeklyEmission() public view returns (uint256) {
+            return (circulatingSupply() * tailEmission) / base;
     }
 
     /* @info _minted is the amount of minted bHermes */
     /// @inheritdoc IBaseV2Minter
-    function calculateGrowth(uint256 _minted) public /*view*/ returns (uint256) {
-        emit log("");
-        emit log("==== BaseV2Minter.calculateGrowth() ====");
-        emit log_named_uint("[INFO] Vault total assets: ", vault.totalAssets());
-        emit log_named_uint("[INFO] Minted HERMES (newWeeklyEmission): ", _minted);
-        emit log_named_uint("[INFO] HERMES total supply: ", HERMES(underlying).totalSupply());
-        emit log_named_uint("[CALC] Calculated growth: ", (vault.totalAssets() * _minted) / HERMES(underlying).totalSupply());
-        emit log("---- calculateGrowth END ----");
+    function calculateGrowth(uint256 _minted) public view returns (uint256) {
         return (vault.totalAssets() * _minted) / HERMES(underlying).totalSupply();
     }
 
@@ -158,8 +144,6 @@ contract BaseV2Minter is Ownable, IBaseV2Minter, Test {
     * The admin (owner) of HERMES is the BaseV2Minter, he is the one calling here. */
     /// @inheritdoc IBaseV2Minter
     function updatePeriod() public returns (uint256) {
-        emit log("");
-        emit log("==== BaseV2Minter.updatePeriod() ====");
         /* @audit What writes to the activePeriod? 
         * The initialize() sets the initial period */
         uint256 _period = activePeriod;
@@ -172,8 +156,6 @@ contract BaseV2Minter is Ownable, IBaseV2Minter, Test {
         * This is not an issue the shift is expected. No matter when you start the first period, it will be set to thurdsday 00:00
         * Every next period will follow this cycle. */
         if (block.timestamp >= _period + week && initializer == address(0)) {
-            console.log("[INFO] Timestamp %s is greater than previous period %s + week %s", block.timestamp, _period, week);
-            console.log("[INFO] Because of that, active period will be updated");
             /* @audit-ok The calculation below causes precision loss.
             * The calculated period + week will be equal to 4202150400 
             * When multiplied first and then divided the result is: 4202651988
@@ -185,9 +167,7 @@ contract BaseV2Minter is Ownable, IBaseV2Minter, Test {
             * can be called 2 days sooner than expected. 
             *
             * THIS IS OK, I guess this is how it is supposed to work. */
-            emit log_named_uint("[INFO] Current (previous) period: ", _period);
             _period = (block.timestamp / week) * week;
-            emit log_named_uint("[CALC] New period: ", _period);
 
             activePeriod = _period;
             /* @audit For all the calculations below substitute the names with underlying 
@@ -214,10 +194,8 @@ contract BaseV2Minter is Ownable, IBaseV2Minter, Test {
             
             /* @info HERE IS THE MINT*/
             if (_balanceOf < _required) {
-                emit log_named_address("[INFO] Address trying to mint: ", address(this));
                 // emit log_named_address("[INFO] Hermes onlyOwner: ", address(HERMES(underlying).owner()));
                 HERMES(underlying).mint(address(this), _required - _balanceOf);
-                emit log("[STATUS] Succesful mint");
             }
 
             underlying.safeTransfer(address(vault), _growth);
@@ -230,12 +208,9 @@ contract BaseV2Minter is Ownable, IBaseV2Minter, Test {
             /// @dev queue rewards for the cycle, anyone can call if fails
             ///      queueRewardsForCycle will call this function but won't enter
             ///      here because activePeriod was updated
-            emit log("[STATUS] Trying to call flywheelGaugeRewards.queueRewardsForCycle()");
-            try flywheelGaugeRewards.queueRewardsForCycle() { emit log("[SUCCESS] flywheelGaugeRewards.queueRewardsForCycle() succeeded");} catch {
-                emit log("[ERROR] flywheelGaugeRewards.queueRewardsForCycle() failed");
+            try flywheelGaugeRewards.queueRewardsForCycle() { } catch {
             }
         }
-        emit log("---- updatePeriod END ----");
         return _period;
     }
 
