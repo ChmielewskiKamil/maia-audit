@@ -1,6 +1,4 @@
 // SPDX-License-Identifier: MIT
-// Modified version of https://github.com/zeroknots/boilerplate.sol/blob/main/test/Boilerplate.t.sol
-// by @zeroknotsETH
 
 pragma solidity ^0.8.15;
 
@@ -76,9 +74,6 @@ contract Boilerplate is Test {
 
     UniswapV3GaugeFactory uniswapV3GaugeFactory;
     UniswapV3Gauge gauge;
-    UniswapV3Gauge gauge2;
-    UniswapV3Gauge gauge3;
-    UniswapV3Gauge gauge4;
 
     HERMES rewardToken;
 
@@ -124,7 +119,6 @@ contract Boilerplate is Test {
 
     // Old Arbitrum USDC
     address constant USDC = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
-    address constant WETH = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
     address constant DAI = 0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1;
 
     UniswapV3Factory uniswapV3Factory = UniswapV3Factory(0x1F98431c8aD98523631AE4a59f267346ea31F984);
@@ -134,29 +128,10 @@ contract Boilerplate is Test {
 
     // Token0: DAI, Token1: USDC
     UniswapV3Pool DAI_USDC_pool = UniswapV3Pool(0xF0428617433652c9dc6D1093A42AdFbF30D29f74);
-    UniswapV3Pool mockPool2 = UniswapV3Pool(address(0x222));
-    UniswapV3Pool mockPool3 = UniswapV3Pool(address(0x333));
-    UniswapV3Pool mockPool4 = UniswapV3Pool(address(0x444));
 
     ////////////////////////////////////////////////////////////////////
     //                          Utilities                             //
     ////////////////////////////////////////////////////////////////////
-
-    function suStart(address user) public {
-        vm.startPrank(user);
-        activePrank = true;
-    }
-
-    function suStop() public {
-        vm.stopPrank();
-        activePrank = false;
-    }
-
-    modifier asUser(address user) {
-        suStart(user);
-        _;
-        suStop();
-   }
 
     function makeAddr() public {
         ATTACKER = address(0x1337);
